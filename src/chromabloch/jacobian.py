@@ -296,6 +296,11 @@ def jacobian_phi_complex_step(
     This achieves near-machine-precision accuracy for analytic functions
     without subtraction cancellation. Use for validating the analytic Jacobian.
     
+    IMPORTANT: This implementation uses holomorphic operations only:
+    - sqrt(z²) instead of |z| (which involves conjugation)
+    - No np.linalg.norm (uses |z|), no np.abs on complex
+    - Branching is done on real parts only
+    
     Note: Only works for strictly positive LMS (no clamping/abs operations).
     
     Parameters
@@ -323,7 +328,7 @@ def jacobian_phi_complex_step(
         lms_c = lms.astype(complex)
         lms_c[j] += 1j * h
         
-        # Compute v using complex arithmetic
+        # Compute v using complex arithmetic (holomorphic only!)
         # Opponent transform
         L, M, S = lms_c
         Y = theta.w_L * L + theta.w_M * M
@@ -335,16 +340,19 @@ def jacobian_phi_complex_step(
         u1 = O1 / denom
         u2 = O2 / denom
         
-        # Compression (complex-valued)
+        # Compression (complex-valued, holomorphic)
+        # CRITICAL: Use algebraic norm sqrt(u1² + u2²), NOT np.linalg.norm/np.abs
+        # np.linalg.norm uses |z| = sqrt(z·conj(z)) which breaks holomorphicity
         u_norm_sq = u1**2 + u2**2
-        u_norm = np.sqrt(u_norm_sq)
+        u_norm = np.sqrt(u_norm_sq)  # Holomorphic: sqrt(u1² + u2²)
         kappa_r = theta.kappa * u_norm
         
-        # Complex tanh
+        # Complex tanh (holomorphic)
         tanh_kr = np.tanh(kappa_r)
         
         # Scale factor
-        if np.abs(u_norm) < 1e-10:
+        # Branch on REAL part only to preserve holomorphicity
+        if u_norm.real < 1e-10:
             scale = theta.kappa
         else:
             scale = tanh_kr / u_norm

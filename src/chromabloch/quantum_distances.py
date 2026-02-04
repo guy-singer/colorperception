@@ -113,13 +113,19 @@ def bures_distance(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
     return np.sqrt(2 * (1 - np.sqrt(F)))
 
 
-def fubini_study_distance(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
-    """Compute Fubini-Study distance (geodesic on projective space).
+def bures_angle(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
+    """Compute Bures angle (geodesic angle between density matrices).
     
-    d_FS(ρ₁, ρ₂) = arccos(√F(ρ₁, ρ₂))
+    θ_B(ρ₁, ρ₂) = arccos(√F(ρ₁, ρ₂))
     
-    This is the natural metric for pure states on the Bloch sphere,
-    but generalizes to mixed states via fidelity.
+    This is the natural geodesic distance on the space of density matrices
+    with the Bures-Helstrom metric. For pure states, it equals the
+    Fubini-Study distance.
+    
+    Note: The term "Fubini-Study distance" is canonically reserved for
+    pure states in projective Hilbert space. For mixed states (which
+    is what Bloch vectors with ||v|| < 1 represent), the correct term
+    is "Bures angle."
     
     Parameters
     ----------
@@ -131,11 +137,17 @@ def fubini_study_distance(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
     Returns
     -------
     d : ndarray
-        Fubini-Study distance(s) in [0, π/2].
+        Bures angle(s) in [0, π/2].
     """
     F = fidelity(v1, v2)
     sqrt_F = np.sqrt(np.clip(F, 0, 1))
     return np.arccos(sqrt_F)
+
+
+# Alias for backwards compatibility and clarity
+def fubini_study_distance(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
+    """Alias for bures_angle (Fubini-Study is the pure-state special case)."""
+    return bures_angle(v1, v2)
 
 
 def relative_entropy(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
@@ -242,7 +254,7 @@ def compare_distances(v1: np.ndarray, v2: np.ndarray) -> dict:
         'hilbert': float(hilbert_distance(v1, v2)),
         'trace': float(trace_distance(v1, v2)),
         'bures': float(bures_distance(v1, v2)),
-        'fubini_study': float(fubini_study_distance(v1, v2)),
+        'bures_angle': float(bures_angle(v1, v2)),
         'fidelity': float(fidelity(v1, v2)),
         'euclidean': float(np.linalg.norm(v1 - v2)),
     }
@@ -252,7 +264,8 @@ __all__ = [
     "trace_distance",
     "fidelity",
     "bures_distance",
-    "fubini_study_distance",
+    "bures_angle",
+    "fubini_study_distance",  # alias for bures_angle
     "relative_entropy",
     "compare_distances",
 ]

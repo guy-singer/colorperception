@@ -7,7 +7,8 @@ from chromabloch.quantum_distances import (
     trace_distance,
     fidelity,
     bures_distance,
-    fubini_study_distance,
+    bures_angle,
+    fubini_study_distance,  # alias for bures_angle
     compare_distances,
 )
 
@@ -171,28 +172,28 @@ class TestBuresDistance:
             assert d13 <= d12 + d23 + 1e-10, "Triangle inequality violated"
 
 
-class TestFubiniStudyDistance:
-    """Tests for Fubini-Study distance."""
+class TestBuresAngle:
+    """Tests for Bures angle (= Fubini-Study for pure states)."""
 
     def test_zero_for_identical(self):
-        """Fubini-Study distance of identical states is zero."""
+        """Bures angle of identical states is zero."""
         v = np.array([0.3, 0.5])
-        d = fubini_study_distance(v, v)
+        d = bures_angle(v, v)
         
         np.testing.assert_allclose(d, 0.0, atol=1e-10)
 
     def test_symmetric(self):
-        """Fubini-Study distance is symmetric."""
+        """Bures angle is symmetric."""
         v1 = np.array([0.3, 0.4])
         v2 = np.array([-0.2, 0.5])
         
-        d12 = fubini_study_distance(v1, v2)
-        d21 = fubini_study_distance(v2, v1)
+        d12 = bures_angle(v1, v2)
+        d21 = bures_angle(v2, v1)
         
         np.testing.assert_allclose(d12, d21, atol=1e-15)
 
     def test_range(self):
-        """Fubini-Study distance in [0, π/2]."""
+        """Bures angle in [0, π/2]."""
         rng = np.random.default_rng(202)
         
         for _ in range(50):
@@ -202,9 +203,19 @@ class TestFubiniStudyDistance:
             v1 = np.array([r[0] * np.cos(theta[0]), r[0] * np.sin(theta[0])])
             v2 = np.array([r[1] * np.cos(theta[1]), r[1] * np.sin(theta[1])])
             
-            d = fubini_study_distance(v1, v2)
+            d = bures_angle(v1, v2)
             
-            assert 0 <= d <= np.pi/2 + 1e-10, f"Fubini-Study out of range: {d}"
+            assert 0 <= d <= np.pi/2 + 1e-10, f"Bures angle out of range: {d}"
+    
+    def test_fubini_study_alias(self):
+        """fubini_study_distance is an alias for bures_angle."""
+        v1 = np.array([0.3, 0.4])
+        v2 = np.array([-0.2, 0.5])
+        
+        d_bures = bures_angle(v1, v2)
+        d_fs = fubini_study_distance(v1, v2)
+        
+        np.testing.assert_allclose(d_bures, d_fs, atol=1e-15)
 
 
 class TestCompareDistances:
@@ -217,7 +228,7 @@ class TestCompareDistances:
         
         result = compare_distances(v1, v2)
         
-        expected_keys = ['hilbert', 'trace', 'bures', 'fubini_study', 'fidelity', 'euclidean']
+        expected_keys = ['hilbert', 'trace', 'bures', 'bures_angle', 'fidelity', 'euclidean']
         for key in expected_keys:
             assert key in result, f"Missing key: {key}"
 

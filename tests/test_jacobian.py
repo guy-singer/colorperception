@@ -216,6 +216,46 @@ class TestJacobianComplexStep:
         assert err_complex < err_fd * 0.01, (
             f"Complex-step error {err_complex} not much better than FD {err_fd}"
         )
+    
+    def test_holomorphic_norm_implementation(self):
+        """Verify complex-step uses holomorphic (algebraic) norm, not |z|.
+        
+        The complex-step method requires all operations to be holomorphic.
+        Using np.linalg.norm or np.abs on complex numbers breaks this because
+        they use |z| = sqrt(z * conj(z)), which involves conjugation.
+        
+        We test this by checking agreement at rtol=1e-10, which would fail
+        if the norm was computed non-holomorphically.
+        """
+        theta = Theta(epsilon=0.01, kappa=1.0)
+        
+        # Test at points well inside the smooth regime
+        # (away from origin and boundary)
+        rng = np.random.default_rng(42)
+        
+        n_success = 0
+        for _ in range(30):
+            # Generate LMS that gives ||v|| in (0.2, 0.8)
+            lms = 10.0 ** rng.uniform(-0.2, 0.2, size=3)
+            
+            # Verify v is in smooth regime
+            from chromabloch.mapping import phi_theta
+            v = phi_theta(lms, theta)
+            v_norm = np.linalg.norm(v)
+            
+            if 0.1 < v_norm < 0.85:  # Smooth regime
+                J_analytic = jacobian_phi_analytic(lms, theta)
+                J_complex = jacobian_phi_complex_step(lms, theta)
+                
+                # Very tight tolerance to catch non-holomorphic implementation
+                np.testing.assert_allclose(
+                    J_analytic, J_complex, rtol=1e-10, atol=1e-12,
+                    err_msg=f"Holomorphic test failed at LMS={lms}, ||v||={v_norm}"
+                )
+                n_success += 1
+        
+        # Ensure we tested enough points in smooth regime
+        assert n_success >= 10, f"Only {n_success} points in smooth regime"
 
 
 class TestScaleInvarianceJacobian:

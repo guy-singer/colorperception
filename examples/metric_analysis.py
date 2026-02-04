@@ -31,7 +31,7 @@ from chromabloch.metric import (
 from chromabloch.quantum_distances import (
     trace_distance,
     bures_distance,
-    fubini_study_distance,
+    bures_angle,
     fidelity,
     compare_distances,
 )
@@ -185,7 +185,7 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
         'hilbert': [],
         'trace': [],
         'bures': [],
-        'fubini_study': [],
+        'bures_angle': [],
         'euclidean': [],
     }
     
@@ -230,13 +230,13 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
     ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
     ax.legend()
     
-    # Hilbert vs Fubini-Study
+    # Hilbert vs Bures Angle
     ax = axes[1, 0]
-    ax.scatter(distances['hilbert'], distances['fubini_study'], alpha=0.3, s=10)
+    ax.scatter(distances['hilbert'], distances['bures_angle'], alpha=0.3, s=10)
     ax.set_xlabel('Hilbert distance')
-    ax.set_ylabel('Fubini-Study distance')
-    ax.set_title('Fubini-Study vs Hilbert')
-    corr = np.corrcoef(distances['hilbert'], distances['fubini_study'])[0, 1]
+    ax.set_ylabel('Bures angle')
+    ax.set_title('Bures Angle vs Hilbert\n(= Fubini-Study for pure states)')
+    corr = np.corrcoef(distances['hilbert'], distances['bures_angle'])[0, 1]
     ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
     
     # Hilbert vs Euclidean
@@ -255,7 +255,7 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
     
     # Print correlation summary
     print("\nDistance Correlations with Hilbert:")
-    for name in ['trace', 'bures', 'fubini_study', 'euclidean']:
+    for name in ['trace', 'bures', 'bures_angle', 'euclidean']:
         corr = np.corrcoef(distances['hilbert'], distances[name])[0, 1]
         print(f"  {name:15s}: r = {corr:.4f}")
 

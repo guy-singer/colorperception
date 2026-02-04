@@ -58,7 +58,7 @@ where σ₁, σ₂ are the real Pauli matrices.
 | `mathutils.py` | Attainable region boundary, sampling, and validation |
 | `jacobian.py` | Analytic, finite-diff, and complex-step Jacobian; sensitivity metrics |
 | `metric.py` | Klein metric tensor, pullback metric, discrimination ellipsoids |
-| `quantum_distances.py` | Trace, Bures, Fubini-Study distances; fidelity; comparison tools |
+| `quantum_distances.py` | Trace, Bures distance, Bures angle; fidelity; comparison tools |
 | `demo.py` | Artifact generation for validation |
 
 ### 2.2 Numerical Stability
@@ -252,17 +252,30 @@ This section explicitly separates mathematical guarantees from numerical behavio
 ```python
 # Safe usage pattern:
 v, diag = phi_theta_with_diagnostics(lms, theta)
-if diag.is_safe():
+
+if diag.is_reconstructable():
+    # is_reconstructable() checks (most conservative):
+    #   - is_safe() == True
+    #   - max_kappa_u < 14.5
+    # Guaranteed: reconstruction error < 1e-8
+    lms_reconstructed = reconstruct_lms(v, Y, theta)
+    
+elif diag.is_safe():
     # is_safe() checks:
     #   - n_negative_clipped == 0
     #   - n_saturated == 0
     #   - n_boundary_clamped == 0
+    #   - max_kappa_u < 15.0 (warning threshold)
+    # Reconstruction likely accurate, but not guaranteed
     lms_reconstructed = reconstruct_lms(v, Y, theta)
-    # Empirically validated: ||lms_reconstructed - lms|| < 1e-8
+    
 else:
     # Inspect diag.summary() for details
     # Reconstruction may be unreliable
+    print(diag.summary())
 ```
+
+Note: `is_safe()` now includes a threshold check on `max_kappa_u < 15` (warning threshold). Use `is_reconstructable()` for the most conservative guarantee (`max_kappa_u < 14.5`).
 
 ---
 
@@ -299,6 +312,37 @@ results/YYYYMMDD_HHMMSS/
 └── arrays.npz
 ```
 
+### 6.4 Reproducing Figures
+
+All figures can be regenerated with the master script:
+
+```bash
+cd chromabloch
+python examples/run_all_figures.py
+```
+
+This generates a timestamped manifest with:
+- Git commit hash
+- Python/NumPy versions
+- θ parameters used
+- List of generated files
+
+**Individual figure scripts:**
+
+| Figure | Script | Key Parameters |
+|--------|--------|----------------|
+| `realistic_colors_demo.png` | `demo_realistic_colors.py` | sRGB primaries, ColorChecker patches, HPE matrix |
+| `srgb_grid_analysis.png` | `srgb_grid_analysis.py` | 64³ sRGB grid, κ=1.0 |
+| `display_p3_analysis.png`, `rec.2020_analysis.png` | `wide_gamut_analysis.py` | 64³ grids per gamut |
+| `gamut_boundary_analysis.png`, `kappa_sensitivity.png` | `gamut_boundary_analysis.py` | θ default and D65, κ ∈ {0.5, 1.0, 2.0} |
+| `discrimination_ellipses.png`, `distance_comparison.png`, `sensitivity_heatmap.png` | `metric_analysis.py` | D65-calibrated θ |
+| `image_demo_*.png` | `image_hue_saturation_demo.py` | Synthetic images |
+
+**Exact reproduction:**
+- All scripts use `np.random.default_rng(42)` for determinism
+- HPE matrix: Hunt-Pointer-Estevez (see `wide_gamut_analysis.py`)
+- Whitepoint: D65 in XYZ = (0.95047, 1.0, 1.08883)
+
 ---
 
 ## 7. Known Limitations
@@ -331,7 +375,29 @@ The LaTeX defines the Bloch disk as **open**: D = {v : ||v|| < 1}.
 
 **Numerical (Contract B):** Implementation clamps ||v|| to 1 - 10⁻¹² when tanh saturates. This breaks true invertibility at the boundary.
 
-### 7.4 Parameters Not Calibrated
+### 7.4 Non-Surjectivity: Φ_θ Does NOT Cover All of D
+
+**Critical**: The attainable region Φ_θ(ℝ³₊₊) is a **proper subset** of D for all finite κ.
+
+The mapping T_κ compresses ℝ² → D via tanh(κ||u||), but the attainable chromaticity region in u-space is itself bounded:
+- u₁ is bounded by cone ratios: -γ/w_M < u₁ < 1/w_L
+- u₂ is bounded below by g(u₁), not above
+
+This means:
+- **κ → ∞**: The image approaches (but never reaches) the full disk
+- **κ finite**: The image is a proper subset, with hue-dependent max saturation
+- **"100% coverage" is impossible** for any finite κ
+
+**Area fraction** (not "coverage"): For default θ with κ=1, approximately 48% of disk area is attainable. For κ=2, approximately 65%. Neither reaches 100%.
+
+Avoid the term "coverage" which conflates:
+1. Area fraction of D attainable from all LMS
+2. Area fraction of D reached by a specific display gamut (sRGB, P3, etc.)
+3. Percentage of colors that map without saturation
+
+These are different quantities. Use precise language in all contexts.
+
+### 7.5 Parameters Not Calibrated
 
 The default θ values are **mathematical placeholders**, not psychophysically validated:
 
@@ -345,13 +411,13 @@ The default θ values are **mathematical placeholders**, not psychophysically va
 
 **Whitepoint calibration**: Use `Theta.from_whitepoint(L, M, S)` to set γ, β so that a chosen neutral maps to the origin.
 
-### 7.5 Reconstruction Limitations
+### 7.6 Reconstruction Limitations
 
 1. **Positivity not guaranteed**: `reconstruct_lms(v, Y)` may produce negative L, M, or S for chromaticities outside the attainable region at the given luminance.
 
 2. **Saturation regime**: Reconstruction is numerically unreliable when the original κ||u|| exceeded ~18.
 
-### 7.6 Perceptual Validity Not Established
+### 7.7 Perceptual Validity Not Established
 
 This implementation is a **faithful realization of Part I mathematics**. It does **NOT** establish:
 - Hue angles match human hue perception
@@ -361,9 +427,39 @@ This implementation is a **faithful realization of Part I mathematics**. It does
 
 Perceptual validation requires Part II calibration work.
 
-### 7.7 Single Observer Model
+### 7.8 Single Observer Model
 
 No inter-observer variability or chromatic adaptation states are modeled. The mapping is deterministic for a fixed θ.
+
+### 7.9 Pullback Metric Degeneracy
+
+The pullback metric G_LMS(x) = Jᵀ G_D(Φ(x)) J is **rank-deficient** by design:
+
+**Why rank ≤ 2?**
+- Φ_θ maps ℝ³ → ℝ² (3D LMS space to 2D Bloch disk)
+- The Jacobian J is 2×3, so Jᵀ G_D J is at most rank 2
+
+**For ε = 0 (exact scale invariance):**
+- The scale direction x is in the null space of G_LMS
+- Infinitesimal changes δx ∝ x produce δv = 0 (no chromatic change)
+- This is mathematically correct: scaling doesn't change chromaticity
+
+**For ε > 0:**
+- The null space is only approximate
+- G_LMS has two dominant eigenvalues and one near-zero eigenvalue
+- The small eigenvalue corresponds to a direction "mostly" scaling
+
+**Implications for discrimination ellipsoids:**
+- In LMS space, the ellipsoid {δx : δxᵀ G_LMS δx ≤ 1} is infinite along the null direction
+- For visualization, work in a 2D subspace (e.g., constant-Y chromaticity plane)
+- Or compute ellipses directly in v-space using the Klein metric
+
+**Code example:**
+```python
+G_LMS = pullback_metric_lms(lms, theta)
+eigenvalues = np.linalg.eigvalsh(G_LMS)
+# eigenvalues[0] ~ eigenvalues[1] >> eigenvalues[2] ≈ 0
+```
 
 ---
 

@@ -332,7 +332,19 @@ def visualize_gamut_boundary(
     print(f"  Max ||v|| overall: {np.max(v_norms):.4f}")
     print(f"  Min ||v|| (boundary): {np.min(v_norms):.4f}")
     print(f"  Mean ||v|| (boundary): {np.mean(v_norms):.4f}")
-    print(f"  Disk coverage: {np.mean(attainable_mask)*100:.1f}%")
+    
+    # Compute area fraction with binomial confidence interval
+    n_total_grid = np.sum(v_grid_norm < 1)  # Points inside disk
+    n_attainable = np.sum(attainable_mask & (v_grid_norm < 1))
+    area_frac = n_attainable / n_total_grid
+    # Wilson score interval (95% CI)
+    z = 1.96
+    denom = 1 + z**2 / n_total_grid
+    center = (area_frac + z**2 / (2 * n_total_grid)) / denom
+    margin = z * np.sqrt((area_frac * (1 - area_frac) + z**2 / (4 * n_total_grid)) / n_total_grid) / denom
+    print(f"  Area fraction of disk attainable: {area_frac:.3f} ± {margin:.3f} (95% CI)")
+    print(f"    Note: This is the area fraction of D that Φ_θ(LMS>0) covers,")
+    print(f"          NOT 'coverage' of a display gamut within D.")
     
     # Hue-specific max saturations
     hue_names = [('Red (+v₁)', 0), ('Yellow (-v₂)', -90), ('Green (-v₁)', 180), ('Blue (+v₂)', 90)]
@@ -388,7 +400,10 @@ def main():
         ax.set_title(f'κ = {kappa}')
         ax.grid(True, alpha=0.3)
         
-        print(f"κ = {kappa}: max ||v|| = {np.max(v_norms):.4f}, coverage = {np.mean(v_norms > 0.5)*100:.1f}%")
+        # Note: "area fraction" is the fraction of disk D occupied by attainable region
+        # It increases with κ but NEVER reaches 100% for finite κ
+        area_frac_approx = np.mean(v_norms)**2 * np.pi / np.pi  # rough proxy
+        print(f"κ = {kappa}: max ||v|| = {np.max(v_norms):.4f}, mean boundary ||v|| = {np.mean(v_norms):.4f}")
     
     plt.tight_layout()
     plt.savefig(output_dir / 'kappa_sensitivity.png', dpi=150)

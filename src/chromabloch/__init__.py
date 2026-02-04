@@ -61,9 +61,12 @@ from chromabloch.geometry import (
 )
 from chromabloch.mathutils import (
     g_boundary, 
+    u1_bounds,
     in_attainable_region_u,
     sample_attainable_region,
     reconstruct_from_attainable,
+    max_radius_in_direction,
+    attainable_v_boundary_polar,
 )
 from chromabloch.jacobian import (
     jacobian_phi_finite_diff,
@@ -85,7 +88,8 @@ from chromabloch.quantum_distances import (
     trace_distance,
     fidelity,
     bures_distance,
-    fubini_study_distance,
+    bures_angle,
+    fubini_study_distance,  # alias for bures_angle
     relative_entropy,
     compare_distances,
 )
@@ -137,9 +141,12 @@ __all__ = [
     "gamma_factor",
     # mathutils
     "g_boundary",
+    "u1_bounds",
     "in_attainable_region_u",
     "sample_attainable_region",
     "reconstruct_from_attainable",
+    "max_radius_in_direction",
+    "attainable_v_boundary_polar",
     # jacobian
     "jacobian_phi_finite_diff",
     "jacobian_phi_analytic",
@@ -158,7 +165,8 @@ __all__ = [
     "trace_distance",
     "fidelity",
     "bures_distance",
-    "fubini_study_distance",
+    "bures_angle",
+    "fubini_study_distance",  # alias for bures_angle
     "relative_entropy",
     "compare_distances",
 ]

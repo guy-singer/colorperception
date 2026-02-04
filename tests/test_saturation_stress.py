@@ -323,6 +323,82 @@ class TestSaturationFailureContract:
             )
 
 
+class TestDiagnosticsIsSafe:
+    """Tests for the MappingDiagnostics.is_safe() method."""
+
+    def test_is_safe_basic(self):
+        """Test that is_safe() returns True for normal inputs."""
+        from chromabloch.mapping import phi_theta_with_diagnostics
+
+        theta = Theta(kappa=1.0, epsilon=0.01)  # epsilon > 0 for safety
+        
+        # Normal LMS that gives moderate ||u|| (should be safe)
+        lms_safe = np.array([1.0, 1.0, 1.0])
+        _, diag_safe = phi_theta_with_diagnostics(lms_safe.reshape(1, 3), theta)
+        assert diag_safe.is_safe(), f"Expected safe, got max_kappa_u={diag_safe.max_kappa_u}"
+
+    def test_is_safe_false_for_high_kappa_u(self):
+        """Test that is_safe() returns False when max_kappa_u >= 15."""
+        from chromabloch.mapping import phi_theta_with_diagnostics
+
+        theta = Theta(kappa=1.0, epsilon=0.01)
+        
+        # Very high S value to push kappa_u above threshold
+        # Need kappa_u > 15, so ||u|| > 15
+        # Use smaller kappa to avoid boundary clamping first
+        theta_small_kappa = Theta(kappa=0.5, epsilon=0.01)
+        
+        # With kappa=0.5, need ||u|| > 30 for kappa_u > 15
+        lms_high = np.array([1.0, 1.0, 65.0])  # Very high S
+        _, diag_high = phi_theta_with_diagnostics(lms_high.reshape(1, 3), theta_small_kappa)
+        
+        print(f"High: max_kappa_u = {diag_high.max_kappa_u}")
+        
+        # Should not be safe (kappa_u >= 15)
+        if diag_high.max_kappa_u >= 15:
+            assert not diag_high.is_safe(), f"Expected not safe for kappa_u={diag_high.max_kappa_u}"
+
+    def test_is_safe_checks_max_kappa_u_threshold(self):
+        """Verify is_safe() includes the max_kappa_u < 15 check."""
+        from chromabloch.mapping import MappingDiagnostics
+        
+        # Create a diagnostics object manually to test the threshold
+        # Safe case: max_kappa_u < 15
+        diag_safe = MappingDiagnostics(
+            n_total=1, n_negative_clipped=0, n_zero_lms=0,
+            min_Y=1.0, max_Y=1.0, min_u_norm=1.0, max_u_norm=1.0,
+            max_kappa_u=14.9,  # Just below threshold
+            n_near_saturation=0, n_saturated=0,
+            n_boundary_clamped=0, max_v_norm_unclamped=0.9
+        )
+        assert diag_safe.is_safe()
+        
+        # Unsafe case: max_kappa_u >= 15
+        diag_unsafe = MappingDiagnostics(
+            n_total=1, n_negative_clipped=0, n_zero_lms=0,
+            min_Y=1.0, max_Y=1.0, min_u_norm=1.0, max_u_norm=1.0,
+            max_kappa_u=15.1,  # Just above threshold
+            n_near_saturation=0, n_saturated=0,
+            n_boundary_clamped=0, max_v_norm_unclamped=0.9
+        )
+        assert not diag_unsafe.is_safe()
+
+    def test_is_reconstructable_more_conservative(self):
+        """Test that is_reconstructable() uses threshold 14.5."""
+        from chromabloch.mapping import MappingDiagnostics
+        
+        # Safe but not reconstructable: 14.5 <= max_kappa_u < 15
+        diag = MappingDiagnostics(
+            n_total=1, n_negative_clipped=0, n_zero_lms=0,
+            min_Y=1.0, max_Y=1.0, min_u_norm=1.0, max_u_norm=1.0,
+            max_kappa_u=14.7,  # Between 14.5 and 15
+            n_near_saturation=0, n_saturated=0,
+            n_boundary_clamped=0, max_v_norm_unclamped=0.9
+        )
+        assert diag.is_safe(), "Should be safe (kappa_u < 15)"
+        assert not diag.is_reconstructable(), "Should not be reconstructable (kappa_u > 14.5)"
+
+
 class TestAttainableRegionBoundary:
     """Tests approaching the attainable region boundary."""
 

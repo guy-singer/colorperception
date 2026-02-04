@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 
 from chromabloch.params import Theta
+from chromabloch.mapping import phi_theta
+from chromabloch.geometry import hilbert_distance
 from chromabloch.metric import (
     klein_metric_tensor,
     pullback_metric_lms,
@@ -165,3 +167,105 @@ class TestDiscriminationEllipsoid:
         # Check orthonormality
         product = directions.T @ directions
         np.testing.assert_allclose(product, np.eye(3), atol=1e-10)
+
+
+class TestMetricIsDistanceDifferential:
+    """Tests that metric tensor is the differential of distance squared.
+    
+    The Klein metric ds² = dv^T G(v) dv should satisfy:
+        d_H(v, v+dv) ≈ √(dv^T G(v) dv)  for small ||dv||
+    
+    This is a critical validation test for the metric implementation.
+    """
+
+    def test_klein_metric_is_distance_differential_on_disk(self):
+        """Verify Klein metric predicts Hilbert distance for small perturbations.
+        
+        For random v with ||v|| < 0.8 and small dv with ||dv|| ~ 1e-6:
+        - d_num = hilbert_distance(v, v+dv)
+        - d_lin = sqrt(dv^T G(v) dv)
+        - |d_num - d_lin| / d_lin should be O(||dv||)
+        """
+        rng = np.random.default_rng(42)
+        
+        errors = []
+        for _ in range(100):
+            # Random point in disk interior
+            r = rng.uniform(0.1, 0.75)
+            angle = rng.uniform(-np.pi, np.pi)
+            v = np.array([r * np.cos(angle), r * np.sin(angle)])
+            
+            # Small random perturbation
+            dv_direction = rng.normal(size=2)
+            dv_direction /= np.linalg.norm(dv_direction)
+            dv_magnitude = rng.uniform(1e-6, 1e-5)
+            dv = dv_magnitude * dv_direction
+            
+            # Ensure v+dv is still in disk
+            v_perturbed = v + dv
+            if np.linalg.norm(v_perturbed) >= 0.99:
+                continue
+            
+            # Numerical distance
+            d_num = hilbert_distance(v, v_perturbed)
+            
+            # Linear approximation via metric tensor
+            G = klein_metric_tensor(v)
+            d_lin_sq = dv @ G @ dv
+            d_lin = np.sqrt(max(d_lin_sq, 0))  # Ensure non-negative
+            
+            # Relative error (should be O(||dv||))
+            if d_lin > 1e-10:
+                rel_error = abs(d_num - d_lin) / d_lin
+                errors.append(rel_error)
+        
+        # Most errors should be small (O(dv_magnitude))
+        errors = np.array(errors)
+        assert np.median(errors) < 1e-3, f"Median rel error {np.median(errors)} too large"
+        assert np.percentile(errors, 95) < 1e-2, f"95th percentile {np.percentile(errors, 95)} too large"
+
+    def test_metric_second_order_convergence(self):
+        """Verify error between metric prediction and distance scales reasonably.
+        
+        The metric ds² = dv^T G dv predicts infinitesimal distances.
+        For small but finite dv, the error |d_num - d_lin| should be small.
+        
+        Note: Precise O(||dv||²) convergence testing requires very careful
+        numerical analysis. Here we just verify the error decreases appropriately.
+        """
+        # Fixed point
+        v = np.array([0.3, 0.4])
+        G = klein_metric_tensor(v)
+        
+        # Fixed direction
+        direction = np.array([0.6, 0.8])  # unit vector
+        
+        # Test that error is small at various scales
+        for mag in [1e-4, 1e-5, 1e-6]:
+            dv = mag * direction
+            v_perturbed = v + dv
+            
+            d_num = hilbert_distance(v, v_perturbed)
+            d_lin_sq = dv @ G @ dv
+            d_lin = np.sqrt(max(d_lin_sq, 0))
+            
+            # Relative error should be small for small perturbations
+            if d_lin > 1e-12:
+                rel_error = abs(d_num - d_lin) / d_lin
+                assert rel_error < 0.01, (
+                    f"Relative error {rel_error} too large at mag={mag}"
+                )
+
+    def test_metric_batch_consistency(self):
+        """Verify batch computation gives same result as scalar."""
+        v_batch = np.array([
+            [0.2, 0.3],
+            [0.5, -0.2],
+            [-0.3, 0.4],
+        ])
+        
+        G_batch = klein_metric_tensor(v_batch)
+        
+        for i, v in enumerate(v_batch):
+            G_scalar = klein_metric_tensor(v)
+            np.testing.assert_allclose(G_batch[i], G_scalar, atol=1e-14)

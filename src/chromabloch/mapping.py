@@ -74,10 +74,26 @@ class MappingDiagnostics(NamedTuple):
     max_v_norm_unclamped: float
     
     def is_safe(self) -> bool:
-        """Return True if no saturation or domain issues detected."""
+        """Return True if no saturation or domain issues detected.
+        
+        Checks:
+        - No saturation (κ||u|| > 18)
+        - No boundary clamping
+        - No negative clipping
+        - max_kappa_u < 15 (conservative threshold for reconstruction reliability)
+        """
         return (self.n_saturated == 0 and 
                 self.n_boundary_clamped == 0 and
-                self.n_negative_clipped == 0)
+                self.n_negative_clipped == 0 and
+                self.max_kappa_u < _TANH_WARNING_THRESHOLD)
+    
+    def is_reconstructable(self) -> bool:
+        """Return True if reconstruction is guaranteed to be accurate.
+        
+        More conservative than is_safe(): requires max_kappa_u < 14.5
+        to ensure reconstruction error < 1e-8.
+        """
+        return (self.is_safe() and self.max_kappa_u < 14.5)
     
     def summary(self) -> str:
         """Return a human-readable summary."""

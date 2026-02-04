@@ -200,10 +200,108 @@ def reconstruct_from_attainable(
     return np.stack([L, M_arr, S], axis=-1)
 
 
+def max_radius_in_direction(phi: float | np.ndarray, theta: Theta) -> np.ndarray:
+    """Compute maximum attainable ||u|| in a given hue direction (closed-form).
+    
+    For direction d = (cos φ, sin φ), finds the maximum r such that
+    u = r·d is in the attainable region.
+    
+    The constraints are linear in r, so the solution is closed-form:
+    
+    1. u₁ bounds: r·cos(φ) ∈ (-γ/w_M, 1/w_L)
+       → r < bound / |cos(φ)| (depending on sign)
+    
+    2. u₂ > g(u₁): r·sin(φ) > g_intercept + g_slope·r·cos(φ)
+       → r·(sin(φ) - g_slope·cos(φ)) > g_intercept
+       This is also linear in r.
+    
+    Parameters
+    ----------
+    phi : float or array-like
+        Hue angle(s) in radians.
+    theta : Theta
+        Parameter set.
+        
+    Returns
+    -------
+    r_max : ndarray
+        Maximum attainable ||u|| for each direction.
+    """
+    phi = np.asarray(phi, dtype=float)
+    scalar_input = (phi.ndim == 0)
+    phi = np.atleast_1d(phi)
+    
+    lower, upper = u1_bounds(theta)
+    
+    # g(u1) = g_intercept + g_slope * u1
+    Delta = theta.Delta
+    g_intercept = -(theta.beta / Delta) * (theta.gamma + 1.0)
+    g_slope = -(theta.beta / Delta) * (theta.w_M - theta.w_L)
+    
+    cos_phi = np.cos(phi)
+    sin_phi = np.sin(phi)
+    
+    # Initialize with large value
+    r_max = np.full_like(phi, 1e6, dtype=float)
+    
+    # Constraint 1: u1 bounds
+    # If cos(φ) > 0: r < upper / cos(φ)
+    # If cos(φ) < 0: r < lower / cos(φ) = |lower| / |cos(φ)|
+    
+    pos_cos = cos_phi > 1e-10
+    neg_cos = cos_phi < -1e-10
+    
+    r_max = np.where(pos_cos, np.minimum(r_max, (upper - 1e-8) / cos_phi), r_max)
+    r_max = np.where(neg_cos, np.minimum(r_max, (lower + 1e-8) / cos_phi), r_max)
+    
+    # Constraint 2: r·sin(φ) > g_intercept + g_slope·r·cos(φ)
+    # Rearrange: r·(sin(φ) - g_slope·cos(φ)) > g_intercept
+    coeff = sin_phi - g_slope * cos_phi
+    
+    # If coeff > 0: r > g_intercept / coeff (lower bound, doesn't constrain r_max)
+    # If coeff < 0: r < g_intercept / coeff (upper bound)
+    neg_coeff = coeff < -1e-10
+    r_boundary = np.where(neg_coeff, g_intercept / coeff, 1e6)
+    r_max = np.where(neg_coeff, np.minimum(r_max, r_boundary), r_max)
+    
+    # Ensure non-negative
+    r_max = np.maximum(r_max, 0.0)
+    
+    if scalar_input:
+        return r_max[0]
+    return r_max
+
+
+def attainable_v_boundary_polar(
+    phi: float | np.ndarray,
+    theta: Theta,
+) -> np.ndarray:
+    """Compute the v-space gamut boundary in polar coordinates (closed-form).
+    
+    For each hue angle φ, computes ||v||_max = tanh(κ·r_max(φ)).
+    
+    Parameters
+    ----------
+    phi : float or array-like
+        Hue angle(s) in radians.
+    theta : Theta
+        Parameter set.
+        
+    Returns
+    -------
+    v_norm_max : ndarray
+        Maximum ||v|| for each hue direction.
+    """
+    r_max_u = max_radius_in_direction(phi, theta)
+    return np.tanh(theta.kappa * r_max_u)
+
+
 __all__ = [
     "g_boundary",
     "u1_bounds",
     "in_attainable_region_u",
     "sample_attainable_region",
     "reconstruct_from_attainable",
+    "max_radius_in_direction",
+    "attainable_v_boundary_polar",
 ]
