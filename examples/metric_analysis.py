@@ -172,13 +172,20 @@ def visualize_discrimination_ellipses(theta: Theta, output_dir: Path):
 
 
 def compare_quantum_distances(theta: Theta, output_dir: Path):
-    """Compare different quantum distance measures with Hilbert distance."""
+    """Compare different quantum distance measures with Hilbert distance.
+    
+    Saves both the plot and a JSON stats file for reproducibility.
+    """
+    import json
+    from scipy import stats as scipy_stats
+    
     print("\n" + "="*60)
     print("QUANTUM DISTANCE COMPARISON")
     print("="*60)
     
     # Sample pairs of points
-    rng = np.random.default_rng(42)
+    seed = 42
+    rng = np.random.default_rng(seed)
     n_pairs = 500
     
     distances = {
@@ -205,6 +212,34 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
     for key in distances:
         distances[key] = np.array(distances[key])
     
+    # Compute all correlations and stats
+    correlations = {}
+    stats_summary = {}
+    for name in ['trace', 'bures', 'bures_angle', 'euclidean']:
+        pearson_r = np.corrcoef(distances['hilbert'], distances[name])[0, 1]
+        spearman_r, spearman_p = scipy_stats.spearmanr(distances['hilbert'], distances[name])
+        correlations[name] = {
+            'pearson': float(pearson_r),
+            'spearman': float(spearman_r),
+            'spearman_pvalue': float(spearman_p),
+        }
+        stats_summary[name] = {
+            'min': float(np.min(distances[name])),
+            'median': float(np.median(distances[name])),
+            'max': float(np.max(distances[name])),
+            'mean': float(np.mean(distances[name])),
+            'std': float(np.std(distances[name])),
+        }
+    
+    # Hilbert stats
+    stats_summary['hilbert'] = {
+        'min': float(np.min(distances['hilbert'])),
+        'median': float(np.median(distances['hilbert'])),
+        'max': float(np.max(distances['hilbert'])),
+        'mean': float(np.mean(distances['hilbert'])),
+        'std': float(np.std(distances['hilbert'])),
+    }
+    
     # Create comparison plots
     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
     
@@ -214,9 +249,9 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
     ax.plot([0, max(distances['hilbert'])], [0, max(distances['hilbert'])], 'r--', label='y=x')
     ax.set_xlabel('Hilbert distance')
     ax.set_ylabel('Trace distance')
-    ax.set_title('Trace vs Hilbert')
-    corr = np.corrcoef(distances['hilbert'], distances['trace'])[0, 1]
-    ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
+    ax.set_title('Trace Distance vs Hilbert Distance')
+    corr = correlations['trace']['pearson']
+    ax.text(0.05, 0.95, f'Pearson r = {corr:.4f}', transform=ax.transAxes, va='top')
     ax.legend()
     
     # Hilbert vs Bures
@@ -225,39 +260,60 @@ def compare_quantum_distances(theta: Theta, output_dir: Path):
     ax.plot([0, max(distances['hilbert'])], [0, max(distances['hilbert'])], 'r--', label='y=x')
     ax.set_xlabel('Hilbert distance')
     ax.set_ylabel('Bures distance')
-    ax.set_title('Bures vs Hilbert')
-    corr = np.corrcoef(distances['hilbert'], distances['bures'])[0, 1]
-    ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
+    ax.set_title('Bures Distance vs Hilbert Distance')
+    corr = correlations['bures']['pearson']
+    ax.text(0.05, 0.95, f'Pearson r = {corr:.4f}', transform=ax.transAxes, va='top')
     ax.legend()
     
-    # Hilbert vs Bures Angle
+    # Hilbert vs Bures Angle (NOT Fubini-Study for mixed states!)
     ax = axes[1, 0]
     ax.scatter(distances['hilbert'], distances['bures_angle'], alpha=0.3, s=10)
     ax.set_xlabel('Hilbert distance')
-    ax.set_ylabel('Bures angle')
-    ax.set_title('Bures Angle vs Hilbert\n(= Fubini-Study for pure states)')
-    corr = np.corrcoef(distances['hilbert'], distances['bures_angle'])[0, 1]
-    ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
+    ax.set_ylabel('Bures angle (radians)')
+    ax.set_title('Bures Angle vs Hilbert Distance\n(geodesic angle on density matrix space)')
+    corr = correlations['bures_angle']['pearson']
+    ax.text(0.05, 0.95, f'Pearson r = {corr:.4f}', transform=ax.transAxes, va='top')
     
     # Hilbert vs Euclidean
     ax = axes[1, 1]
     ax.scatter(distances['hilbert'], distances['euclidean'], alpha=0.3, s=10)
     ax.set_xlabel('Hilbert distance')
     ax.set_ylabel('Euclidean distance')
-    ax.set_title('Euclidean vs Hilbert')
-    corr = np.corrcoef(distances['hilbert'], distances['euclidean'])[0, 1]
-    ax.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=ax.transAxes, va='top')
+    ax.set_title('Euclidean Distance vs Hilbert Distance')
+    corr = correlations['euclidean']['pearson']
+    ax.text(0.05, 0.95, f'Pearson r = {corr:.4f}', transform=ax.transAxes, va='top')
     
     plt.tight_layout()
     plt.savefig(output_dir / 'distance_comparison.png', dpi=150)
     print(f"Saved: {output_dir / 'distance_comparison.png'}")
     plt.close()
     
+    # Save stats JSON
+    stats_output = {
+        'n_pairs': n_pairs,
+        'seed': seed,
+        'sampling': {
+            'r_range': [0.1, 0.9],
+            'theta_range': [-np.pi, np.pi],
+        },
+        'correlations': correlations,
+        'statistics': stats_summary,
+        'note': 'Bures angle = arccos(sqrt(F)); equals Fubini-Study only for pure states (||v||=1).',
+    }
+    
+    stats_path = output_dir / 'distance_comparison.stats.json'
+    with open(stats_path, 'w') as f:
+        json.dump(stats_output, f, indent=2)
+    print(f"Saved: {stats_path}")
+    
     # Print correlation summary
     print("\nDistance Correlations with Hilbert:")
+    print(f"  {'Distance':<15} {'Pearson r':<12} {'Spearman r':<12}")
+    print(f"  {'-'*39}")
     for name in ['trace', 'bures', 'bures_angle', 'euclidean']:
-        corr = np.corrcoef(distances['hilbert'], distances[name])[0, 1]
-        print(f"  {name:15s}: r = {corr:.4f}")
+        pr = correlations[name]['pearson']
+        sr = correlations[name]['spearman']
+        print(f"  {name:<15} {pr:<12.4f} {sr:<12.4f}")
 
 
 def sensitivity_heatmap(theta: Theta, output_dir: Path):
@@ -358,7 +414,7 @@ def main():
     print("""
 1. Klein metric diverges near boundary → finer discrimination for saturated colors
 2. Pullback metric has rank 2 (ε>0) or rank 2 with null scale direction (ε=0)
-3. Hilbert distance correlates well with Bures and Fubini-Study distances
+3. Hilbert distance correlates well with Bures distance and Bures angle
 4. Euclidean distance underestimates perceptual difference near boundary
 5. Metric trace captures overall sensitivity at each point
 """)

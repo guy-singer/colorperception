@@ -12,6 +12,10 @@ This is the "convincingly usable" demo for a professor.
 
 from typing import Optional
 from pathlib import Path
+import sys
+
+# Ensure chromabloch is importable when running directly
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import numpy as np
 import matplotlib.pyplot as plt

@@ -159,10 +159,16 @@ def analyze_color_space(
     print(f"  99%:    {results['u_norm_99pct']:.4f}")
     print(f"  99.9%:  {results['u_norm_999pct']:.4f}")
     
-    # Recommended κ
-    safe_kappa = suggest_kappa_for_max_u_norm(results['u_norm_max'])
+    # Recommended κ (tolerance-aware)
+    target_tol = 1e-8
+    safety_factor = 0.9
+    safe_kappa = suggest_kappa_for_max_u_norm(results['u_norm_max'], tol=target_tol, safety_factor=safety_factor)
     results['recommended_kappa'] = safe_kappa
-    print(f"\nRecommended κ (80% safety): {safe_kappa:.3f}")
+    results['target_tolerance'] = target_tol
+    results['safety_factor'] = safety_factor
+    results['target_kappa_u_threshold'] = safety_factor * 11.7  # x_tol for 1e-8
+    print(f"\nRecommended κ (tol={target_tol}, safety={safety_factor}): {safe_kappa:.3f}")
+    print(f"  Targets max κ||u|| < {safety_factor * 11.7:.1f}")
     
     # Test with recommended κ
     theta_safe = Theta.from_whitepoint(L_w, M_w, S_w, epsilon=0.01, kappa=safe_kappa)
@@ -296,8 +302,9 @@ def compare_gamuts(results_list: list[dict], output_dir: Optional[Path] = None):
         axes[0].set_title('Maximum Chromaticity Magnitude by Gamut')
         axes[0].set_xticks(x)
         axes[0].set_xticklabels(names)
-        axes[0].axhline(15/1.0, color='orange', linestyle='--', label='κ=1 warning')
-        axes[0].axhline(18/1.0, color='red', linestyle='--', label='κ=1 saturation')
+        # Show thresholds for κ=1
+        axes[0].axhline(11.7, color='green', linestyle='--', label='κ=1: tol=1e-8')
+        axes[0].axhline(17.6, color='red', linestyle='--', label='κ=1: invertibility cap')
         axes[0].legend()
         
         for bar, val in zip(bars1, max_u):
@@ -307,7 +314,7 @@ def compare_gamuts(results_list: list[dict], output_dir: Optional[Path] = None):
         # Recommended κ
         bars2 = axes[1].bar(x, rec_kappa, width, color=['steelblue', 'forestgreen', 'coral'])
         axes[1].set_ylabel('Recommended κ')
-        axes[1].set_title('Safe κ Value by Gamut (80% safety margin)')
+        axes[1].set_title('Recommended κ by Gamut\n(tol=1e-8, safety=0.9, targets κ||u|| < 10.5)')
         axes[1].set_xticks(x)
         axes[1].set_xticklabels(names)
         axes[1].axhline(1.0, color='gray', linestyle='--', label='default κ=1')
@@ -350,14 +357,19 @@ def main():
     print("KEY FINDINGS")
     print("="*60)
     print("""
-1. All three gamuts stay well below κ||u|| = 18 with κ = 1.0
+Threshold vocabulary:
+  - tol=1e-8 threshold: κ||u|| < 11.7 (from measured error profile)
+  - Invertibility cap:  κ||u|| < 17.6 (atanh(R_MAX))
+
+Results:
+1. All three gamuts stay well below κ||u|| = 11.7 with κ = 1.0
 2. Rec.2020 has the widest gamut (max ||u|| ≈ 7-8)
-3. Recommended κ values:
-   - sRGB:      κ ≤ 2.0 (conservative)
-   - Display P3: κ ≤ 1.8
-   - Rec.2020:   κ ≤ 1.5
+3. Recommended κ values (tol=1e-8, safety=0.9, targets κ||u|| < 10.5):
+   - sRGB:       computed dynamically based on max ||u||
+   - Display P3: computed dynamically based on max ||u||  
+   - Rec.2020:   computed dynamically based on max ||u||
 4. Default κ = 1.0 is SAFE for all standard gamuts
-5. For arbitrary/extended gamuts, compute max ||u|| first
+5. For arbitrary/extended gamuts, use suggest_kappa_for_max_u_norm()
 """)
 
 

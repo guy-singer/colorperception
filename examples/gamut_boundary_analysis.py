@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Attainable region boundary in v-space (Bloch disk).
 
-This script visualizes the IMAGE of the attainable region Φ_θ(L) ⊂ D,
+This script visualizes the IMAGE of the THEORETICAL attainable region Φ_θ(ℝ³₊₊) ⊂ D,
 showing:
-1. The v-space gamut boundary induced by T_κ
-2. Non-surjectivity: not all of D is attainable
+1. The v-space boundary induced by T_κ on the u-space constraints
+2. Non-surjectivity: not all of D is attainable for finite κ
 3. Asymmetry: different hue directions have different max saturation
+
+TERMINOLOGY NOTE:
+- "Attainable region" = Φ_θ(ℝ³₊₊), the image of all positive LMS under the mapping
+- "Device gamut image" = Φ_θ(sRGB/P3/Rec2020), the image of a specific color space
+These are DIFFERENT. This script analyzes the theoretical attainable region.
 
 The attainable region in u-space (ε=0) is:
     {(u1, u2) : -γ/w_M < u1 < 1/w_L, u2 > g(u1)}
@@ -15,6 +20,7 @@ where g(u1) = -β/Δ * (γ + 1 + (w_M - w_L)*u1)
 The v-space image is T_κ applied to this region.
 """
 
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -25,7 +31,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from chromabloch.params import Theta, d65_whitepoint_lms_hpe
-from chromabloch.mathutils import g_boundary, u1_bounds
+from chromabloch.mathutils import (
+    g_boundary, 
+    u1_bounds,
+    verify_area_fraction,
+    attainable_area_fraction_polar,
+)
 from chromabloch.compression import compress_to_disk
 
 
@@ -33,7 +44,7 @@ def compute_v_boundary_polar(
     theta: Theta,
     n_angles: int = 360,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the v-space gamut boundary in polar coordinates.
+    """Compute the attainable region boundary in v-space (polar coordinates).
     
     For each hue angle φ, find the maximum attainable ||v|| by:
     1. Parameterize u-space ray: u(r) = r*(cos φ, sin φ)
@@ -180,12 +191,12 @@ def sample_attainable_boundary_dense(
     return u_boundary, v_boundary
 
 
-def visualize_gamut_boundary(
+def visualize_attainable_boundary(
     theta: Theta,
     output_dir: Optional[Path] = None,
     title_suffix: str = "",
 ):
-    """Create comprehensive visualization of v-space gamut boundary.
+    """Create comprehensive visualization of attainable region boundary in v-space.
     
     Parameters
     ----------
@@ -241,7 +252,7 @@ def visualize_gamut_boundary(
     # Plot boundary curve (polar form)
     v_boundary_x = v_norms * np.cos(angles)
     v_boundary_y = v_norms * np.sin(angles)
-    ax2.plot(v_boundary_x, v_boundary_y, 'k-', linewidth=2, label='Gamut boundary')
+    ax2.plot(v_boundary_x, v_boundary_y, 'k-', linewidth=2, label='Attainable region boundary')
     
     # Unit circle
     circle = Circle((0, 0), 1, fill=False, color='red', linestyle='--', 
@@ -328,23 +339,48 @@ def visualize_gamut_boundary(
     plt.close()
     
     # Print statistics
-    print(f"\nGamut Boundary Statistics{title_suffix}:")
+    print(f"\nAttainable Region Statistics{title_suffix}:")
     print(f"  Max ||v|| overall: {np.max(v_norms):.4f}")
     print(f"  Min ||v|| (boundary): {np.min(v_norms):.4f}")
     print(f"  Mean ||v|| (boundary): {np.mean(v_norms):.4f}")
     
-    # Compute area fraction with binomial confidence interval
-    n_total_grid = np.sum(v_grid_norm < 1)  # Points inside disk
-    n_attainable = np.sum(attainable_mask & (v_grid_norm < 1))
-    area_frac = n_attainable / n_total_grid
-    # Wilson score interval (95% CI)
-    z = 1.96
-    denom = 1 + z**2 / n_total_grid
-    center = (area_frac + z**2 / (2 * n_total_grid)) / denom
-    margin = z * np.sqrt((area_frac * (1 - area_frac) + z**2 / (4 * n_total_grid)) / n_total_grid) / denom
-    print(f"  Area fraction of disk attainable: {area_frac:.3f} ± {margin:.3f} (95% CI)")
-    print(f"    Note: This is the area fraction of D that Φ_θ(LMS>0) covers,")
-    print(f"          NOT 'coverage' of a display gamut within D.")
+    # Compute area fraction using BOTH methods for verification
+    print(f"\n  Area fraction computation (two independent methods):")
+    area_result = verify_area_fraction(theta, n_phi=100000, n_grid=500)
+    print(f"    Polar integration: {area_result['polar_fraction']:.4f}")
+    print(f"    Grid counting:     {area_result['grid_fraction']:.4f}")
+    print(f"    Discrepancy:       {area_result['discrepancy']:.4f}")
+    
+    if area_result['agreement']:
+        print(f"    ✓ Methods agree (discrepancy < 0.02)")
+    else:
+        print(f"    ⚠ WARNING: Methods disagree significantly!")
+    
+    print(f"\n    Note: This is the area fraction of D that Φ_θ(ℝ³₊₊) covers,")
+    print(f"          NOT 'coverage' of any specific display gamut.")
+    
+    # Save area fraction stats to JSON
+    if output_dir:
+        stats_path = output_dir / f'attainable_area_stats{title_suffix.replace(" ", "_").replace("(", "").replace(")", "")}.json'
+        stats_data = {
+            'theta': {
+                'kappa': theta.kappa,
+                'gamma': theta.gamma,
+                'beta': theta.beta,
+                'epsilon': theta.epsilon,
+                'w_L': theta.w_L,
+                'w_M': theta.w_M,
+            },
+            'area_fraction_polar': area_result['polar_fraction'],
+            'area_fraction_grid': area_result['grid_fraction'],
+            'discrepancy': area_result['discrepancy'],
+            'max_v_norm': float(np.max(v_norms)),
+            'min_v_norm': float(np.min(v_norms)),
+            'mean_v_norm': float(np.mean(v_norms)),
+        }
+        with open(stats_path, 'w') as f:
+            json.dump(stats_data, f, indent=2)
+        print(f"  Saved stats: {stats_path}")
     
     # Hue-specific max saturations
     hue_names = [('Red (+v₁)', 0), ('Yellow (-v₂)', -90), ('Green (-v₁)', 180), ('Blue (+v₂)', 90)]
@@ -354,23 +390,23 @@ def visualize_gamut_boundary(
 
 
 def main():
-    """Run gamut boundary analysis."""
+    """Run attainable region boundary analysis."""
     output_dir = Path(__file__).parent
     
     # Default parameters
     print("="*60)
-    print("GAMUT BOUNDARY ANALYSIS (Default θ)")
+    print("ATTAINABLE REGION ANALYSIS (Default θ)")
     print("="*60)
     theta_default = Theta.default()
-    visualize_gamut_boundary(theta_default, output_dir, " (Default)")
+    visualize_attainable_boundary(theta_default, output_dir, " (Default)")
     
     # D65-calibrated parameters
     print("\n" + "="*60)
-    print("GAMUT BOUNDARY ANALYSIS (D65-calibrated θ)")
+    print("ATTAINABLE REGION ANALYSIS (D65-calibrated θ)")
     print("="*60)
     L_w, M_w, S_w = d65_whitepoint_lms_hpe()
     theta_d65 = Theta.from_whitepoint(L_w, M_w, S_w)
-    visualize_gamut_boundary(theta_d65, output_dir, " (D65)")
+    visualize_attainable_boundary(theta_d65, output_dir, " (D65)")
     
     # Compare different κ values
     print("\n" + "="*60)

@@ -22,7 +22,7 @@ import numpy as np
 
 from .params import Theta
 from .opponent import opponent_transform
-from .compression import compress_to_disk, _TANH_SATURATION_THRESHOLD, _TANH_WARNING_THRESHOLD
+from .compression import compress_to_disk, _TANH_SATURATION_THRESHOLD, _TANH_WARNING_THRESHOLD, R_MAX
 
 
 class DomainViolation(ValueError):
@@ -87,13 +87,38 @@ class MappingDiagnostics(NamedTuple):
                 self.n_negative_clipped == 0 and
                 self.max_kappa_u < _TANH_WARNING_THRESHOLD)
     
-    def is_reconstructable(self) -> bool:
+    def is_reconstructable(self, tol: float = 1e-8) -> bool:
         """Return True if reconstruction is guaranteed to be accurate.
         
-        More conservative than is_safe(): requires max_kappa_u < 14.5
-        to ensure reconstruction error < 1e-8.
+        More conservative than is_safe(): uses measured error profile to
+        determine if reconstruction error will be within the given tolerance.
+        
+        Parameters
+        ----------
+        tol : float
+            Desired reconstruction tolerance (default 1e-8).
+            
+        Returns
+        -------
+        bool
+            True if reconstruction will achieve the given tolerance.
+            
+        Notes
+        -----
+        The threshold is based on empirically measured roundtrip error
+        from compression_roundtrip_error_profile(). The measured values are:
+        - tol=1e-4:  max_kappa_u < 17.0
+        - tol=1e-6:  max_kappa_u < 15.5
+        - tol=1e-8:  max_kappa_u < 11.5
+        - tol=1e-10: max_kappa_u < 10.0
+        - tol=1e-12: max_kappa_u < 7.0
+        
+        These are empirical bounds from sampling, not mathematical guarantees.
         """
-        return (self.is_safe() and self.max_kappa_u < 14.5)
+        from .compression import max_x_for_reconstruction_tolerance
+        
+        x_max = max_x_for_reconstruction_tolerance(tol)
+        return (self.is_safe() and self.max_kappa_u < x_max)
     
     def summary(self) -> str:
         """Return a human-readable summary."""
@@ -282,12 +307,12 @@ def phi_theta_with_diagnostics(
     
     # Check for clamping
     v_norm = np.linalg.norm(v, axis=-1)
-    n_boundary_clamped = int(np.sum(v_norm >= 1.0 - 1e-12))
+    n_boundary_clamped = int(np.sum(v_norm >= R_MAX))
     
     # Clamp to open disk
     mask = v_norm >= 1.0
     if np.any(mask):
-        v[mask] *= (1.0 - 1e-12) / v_norm[mask, np.newaxis]
+        v[mask] *= R_MAX / v_norm[mask, np.newaxis]
     
     # Reshape back
     v = v.reshape(original_shape[:-1] + (2,))

@@ -1,0 +1,16 @@
+{
+  "theta": {
+    "kappa": 1.0,
+    "gamma": 1.0,
+    "beta": 0.5,
+    "epsilon": 0.01,
+    "w_L": 1.0,
+    "w_M": 1.0
+  },
+  "area_fraction_polar": 0.6025579842323457,
+  "area_fraction_grid": 0.6036747554937185,
+  "discrepancy": 0.0011167712613727732,
+  "max_v_norm": 0.9999999999999999,
+  "min_v_norm": 0.46211715726000974,
+  "mean_v_norm": 0.7570062836623789
+}

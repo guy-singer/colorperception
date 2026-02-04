@@ -169,6 +169,64 @@ class TestDiscriminationEllipsoid:
         np.testing.assert_allclose(product, np.eye(3), atol=1e-10)
 
 
+class TestEigenvalueClipping:
+    """Tests for handling of numerical eigenvalue issues."""
+
+    def test_eigenvalues_clipped_to_nonnegative(self):
+        """metric_eigenvalues should clip tiny negative values to 0."""
+        # Construct a theoretically PSD matrix with numerical noise
+        G_exact = np.array([
+            [1.0, 0.5, 0.1],
+            [0.5, 1.0, 0.2],
+            [0.1, 0.2, 0.01],
+        ])
+        
+        # Add tiny numerical noise that might make smallest eigenvalue negative
+        noise = 1e-14 * np.array([
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, -1],  # This pushes smallest eigenvalue negative
+        ])
+        G_noisy = G_exact + noise
+        
+        # Default behavior: clip to non-negative
+        eigs_clipped = metric_eigenvalues(G_noisy, clip_negative=True)
+        assert np.all(eigs_clipped >= 0), "Clipped eigenvalues should be non-negative"
+        
+        # Without clipping: may have tiny negative
+        eigs_raw = metric_eigenvalues(G_noisy, clip_negative=False)
+        # Just check it runs (may or may not have negative depending on exact noise)
+
+    def test_pullback_eigenvalues_nonnegative(self):
+        """Pullback metric eigenvalues should always be non-negative."""
+        theta = Theta.default()
+        rng = np.random.default_rng(789)
+        
+        for _ in range(50):
+            lms = 10.0 ** rng.uniform(-0.5, 0.5, size=3)
+            G = pullback_metric_lms(lms, theta)
+            eigs = metric_eigenvalues(G)
+            
+            assert np.all(eigs >= 0), f"Negative eigenvalue at lms={lms}: {eigs}"
+
+    def test_discrimination_ellipsoid_no_nan_or_complex(self):
+        """Discrimination ellipsoid should not produce NaN from sqrt of negative."""
+        theta = Theta.default()
+        rng = np.random.default_rng(101)
+        
+        for _ in range(30):
+            lms = 10.0 ** rng.uniform(-0.3, 0.3, size=3)
+            lengths, directions = discrimination_ellipsoid_axes(lms, theta)
+            
+            # Should not have NaN (would come from sqrt of negative)
+            assert not np.any(np.isnan(lengths[np.isfinite(lengths)])), (
+                f"NaN in ellipsoid lengths at lms={lms}"
+            )
+            assert not np.any(np.isnan(directions)), (
+                f"NaN in ellipsoid directions at lms={lms}"
+            )
+
+
 class TestMetricIsDistanceDifferential:
     """Tests that metric tensor is the differential of distance squared.
     

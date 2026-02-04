@@ -17,6 +17,7 @@ from __future__ import annotations
 import numpy as np
 
 from .density import rho_of_v
+from .compression import R_MAX
 
 
 def trace_distance(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
@@ -77,9 +78,10 @@ def fidelity(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
     r2_sq = np.sum(v2 * v2, axis=-1)
     v1_dot_v2 = np.sum(v1 * v2, axis=-1)
     
-    # Clamp for numerical stability
-    r1_sq = np.clip(r1_sq, 0, 1 - 1e-12)
-    r2_sq = np.clip(r2_sq, 0, 1 - 1e-12)
+    # Clamp for numerical stability (ensure 1 - r² > 0)
+    r_sq_max = R_MAX ** 2
+    r1_sq = np.clip(r1_sq, 0, r_sq_max)
+    r2_sq = np.clip(r2_sq, 0, r_sq_max)
     
     # F = ½(1 + v₁·v₂ + √((1-r₁²)(1-r₂²)))
     sqrt_term = np.sqrt((1 - r1_sq) * (1 - r2_sq))

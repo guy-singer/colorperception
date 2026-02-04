@@ -130,7 +130,7 @@ def pullback_metric_lms(
     return G_LMS
 
 
-def metric_eigenvalues(G: np.ndarray) -> np.ndarray:
+def metric_eigenvalues(G: np.ndarray, clip_negative: bool = True) -> np.ndarray:
     """Compute eigenvalues of metric tensor.
     
     For the pullback metric, these indicate:
@@ -141,14 +141,30 @@ def metric_eigenvalues(G: np.ndarray) -> np.ndarray:
     ----------
     G : array-like
         Metric tensor, shape (3, 3) or (..., 3, 3).
+    clip_negative : bool
+        If True, clip tiny negative eigenvalues to 0 (default True).
+        Numerical errors can produce small negative eigenvalues for
+        theoretically positive semidefinite matrices.
         
     Returns
     -------
     eigenvalues : ndarray
         Sorted eigenvalues (descending), shape (3,) or (..., 3).
+        
+    Notes
+    -----
+    The pullback metric is theoretically PSD (positive semidefinite).
+    However, numerical errors in the Jacobian computation and matrix
+    multiplication can produce tiny negative eigenvalues (typically
+    on the order of -1e-15 to -1e-12). These are clipped to 0.0
+    when clip_negative=True.
     """
     G = np.asarray(G, dtype=float)
     eigenvalues = np.linalg.eigvalsh(G)
+    
+    if clip_negative:
+        eigenvalues = np.maximum(eigenvalues, 0.0)
+    
     # Sort descending
     return np.sort(eigenvalues, axis=-1)[..., ::-1]
 
@@ -197,6 +213,16 @@ def discrimination_ellipsoid_axes(
         Semi-axis lengths, shape (3,).
     directions : ndarray
         Principal directions (columns), shape (3, 3).
+        
+    Notes
+    -----
+    The pullback metric G_LMS is at most rank 2 (since Φ maps ℝ³→ℝ²).
+    This means one eigenvalue is zero (or near-zero), corresponding to
+    the null direction (scale direction for ε=0). The semi-axis length
+    in this direction is infinite.
+    
+    Tiny negative eigenvalues from numerical error are clipped to 0
+    before computing sqrt.
     """
     lms = np.asarray(lms, dtype=float)
     
@@ -204,6 +230,9 @@ def discrimination_ellipsoid_axes(
     
     # Eigendecomposition
     eigenvalues, eigenvectors = np.linalg.eigh(G)
+    
+    # Clip tiny negative eigenvalues to 0 (numerical artifact)
+    eigenvalues = np.maximum(eigenvalues, 0.0)
     
     # Sort by eigenvalue (descending)
     idx = np.argsort(eigenvalues)[::-1]

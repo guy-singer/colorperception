@@ -67,6 +67,9 @@ from chromabloch.mathutils import (
     reconstruct_from_attainable,
     max_radius_in_direction,
     attainable_v_boundary_polar,
+    attainable_area_fraction_polar,
+    attainable_area_fraction_grid,
+    verify_area_fraction,
 )
 from chromabloch.jacobian import (
     jacobian_phi_finite_diff,
@@ -147,6 +150,9 @@ __all__ = [
     "reconstruct_from_attainable",
     "max_radius_in_direction",
     "attainable_v_boundary_polar",
+    "attainable_area_fraction_polar",
+    "attainable_area_fraction_grid",
+    "verify_area_fraction",
     # jacobian
     "jacobian_phi_finite_diff",
     "jacobian_phi_analytic",

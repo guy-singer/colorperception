@@ -276,7 +276,7 @@ def attainable_v_boundary_polar(
     phi: float | np.ndarray,
     theta: Theta,
 ) -> np.ndarray:
-    """Compute the v-space gamut boundary in polar coordinates (closed-form).
+    """Compute the attainable region boundary in v-space (polar, closed-form).
     
     For each hue angle φ, computes ||v||_max = tanh(κ·r_max(φ)).
     
@@ -296,6 +296,147 @@ def attainable_v_boundary_polar(
     return np.tanh(theta.kappa * r_max_u)
 
 
+def attainable_area_fraction_polar(theta: Theta, n_phi: int = 100000) -> dict:
+    """Compute area fraction of disk covered by attainable region (polar integration).
+    
+    Area fraction = Area(attainable subset) / Area(unit disk)
+    
+    Using polar formula:
+        Area = (1/2) ∫₀^{2π} r_max(φ)² dφ
+        Disk area = π
+        Fraction = (1/(2π)) ∫₀^{2π} r_max(φ)² dφ
+    
+    Parameters
+    ----------
+    theta : Theta
+        Parameter set.
+    n_phi : int
+        Number of angles for numerical integration.
+        
+    Returns
+    -------
+    result : dict
+        Dictionary with:
+        - 'area_fraction': float
+        - 'n_phi': int
+        - 'theta': parameter summary
+        - 'method': 'polar_integration'
+    """
+    phi = np.linspace(0, 2 * np.pi, n_phi, endpoint=False)
+    dphi = 2 * np.pi / n_phi
+    
+    r_max_v = attainable_v_boundary_polar(phi, theta)
+    
+    # Area = (1/2) ∫ r² dφ ≈ (1/2) Σ r² Δφ
+    area = 0.5 * np.sum(r_max_v**2) * dphi
+    disk_area = np.pi
+    fraction = area / disk_area
+    
+    return {
+        'area_fraction': float(fraction),
+        'n_phi': n_phi,
+        'kappa': theta.kappa,
+        'gamma': theta.gamma,
+        'beta': theta.beta,
+        'method': 'polar_integration',
+    }
+
+
+def attainable_area_fraction_grid(theta: Theta, n_grid: int = 500) -> dict:
+    """Compute area fraction by grid counting in v-space (Monte Carlo sanity check).
+    
+    Samples a uniform grid in v-space [-1,1]² and tests membership in attainable region.
+    
+    Parameters
+    ----------
+    theta : Theta
+        Parameter set.
+    n_grid : int
+        Grid resolution per axis.
+        
+    Returns
+    -------
+    result : dict
+        Dictionary with:
+        - 'area_fraction': float
+        - 'n_grid': int
+        - 'n_disk': int (points in unit disk)
+        - 'n_attainable': int
+        - 'theta': parameter summary
+        - 'method': 'grid_counting'
+    """
+    from .compression import decompress_from_disk
+    
+    v1 = np.linspace(-0.999, 0.999, n_grid)
+    v2 = np.linspace(-0.999, 0.999, n_grid)
+    V1, V2 = np.meshgrid(v1, v2)
+    v_flat = np.stack([V1.ravel(), V2.ravel()], axis=-1)
+    
+    # Mask to disk interior
+    v_norm = np.linalg.norm(v_flat, axis=-1)
+    in_disk = v_norm < 0.999
+    
+    v_in_disk = v_flat[in_disk]
+    n_disk = len(v_in_disk)
+    
+    # Decompress to u-space
+    u_from_v = decompress_from_disk(v_in_disk, theta)
+    
+    # Test membership in attainable u-region
+    attainable = in_attainable_region_u(u_from_v, theta, tol=1e-6)
+    n_attainable = int(np.sum(attainable))
+    
+    fraction = n_attainable / n_disk
+    
+    return {
+        'area_fraction': float(fraction),
+        'n_grid': n_grid,
+        'n_disk': n_disk,
+        'n_attainable': n_attainable,
+        'kappa': theta.kappa,
+        'gamma': theta.gamma,
+        'beta': theta.beta,
+        'method': 'grid_counting',
+    }
+
+
+def verify_area_fraction(theta: Theta, n_phi: int = 100000, n_grid: int = 500) -> dict:
+    """Compute area fraction using both methods and verify agreement.
+    
+    Parameters
+    ----------
+    theta : Theta
+        Parameter set.
+    n_phi : int
+        Angles for polar integration.
+    n_grid : int
+        Grid resolution for grid counting.
+        
+    Returns
+    -------
+    result : dict
+        Combined results with both estimates and discrepancy.
+        
+    Raises
+    ------
+    AssertionError
+        If methods disagree by more than 0.02.
+    """
+    polar = attainable_area_fraction_polar(theta, n_phi)
+    grid = attainable_area_fraction_grid(theta, n_grid)
+    
+    discrepancy = abs(polar['area_fraction'] - grid['area_fraction'])
+    
+    return {
+        'polar': polar,
+        'grid': grid,
+        'polar_fraction': polar['area_fraction'],
+        'grid_fraction': grid['area_fraction'],
+        'discrepancy': discrepancy,
+        'agreement': discrepancy < 0.02,
+    }
+
+
 __all__ = [
     "g_boundary",
     "u1_bounds",
@@ -304,4 +445,7 @@ __all__ = [
     "reconstruct_from_attainable",
     "max_radius_in_direction",
     "attainable_v_boundary_polar",
+    "attainable_area_fraction_polar",
+    "attainable_area_fraction_grid",
+    "verify_area_fraction",
 ]

@@ -387,16 +387,21 @@ class TestDiagnosticsIsSafe:
         """Test that is_reconstructable() uses threshold 14.5."""
         from chromabloch.mapping import MappingDiagnostics
         
-        # Safe but not reconstructable: 14.5 <= max_kappa_u < 15
-        diag = MappingDiagnostics(
+        # Test tolerance-dependent thresholds (measured values from profiling)
+        # tol=1e-8 threshold: 11.5
+        # tol=1e-10 threshold: 10.0
+        
+        # Case: kappa_u=11.0 - safe for 1e-8 but not for 1e-10
+        diag_border = MappingDiagnostics(
             n_total=1, n_negative_clipped=0, n_zero_lms=0,
             min_Y=1.0, max_Y=1.0, min_u_norm=1.0, max_u_norm=1.0,
-            max_kappa_u=14.7,  # Between 14.5 and 15
+            max_kappa_u=11.0,  # Below 11.5 but above 10.0
             n_near_saturation=0, n_saturated=0,
             n_boundary_clamped=0, max_v_norm_unclamped=0.9
         )
-        assert diag.is_safe(), "Should be safe (kappa_u < 15)"
-        assert not diag.is_reconstructable(), "Should not be reconstructable (kappa_u > 14.5)"
+        assert diag_border.is_safe(), "Should be safe (kappa_u < 15)"
+        assert diag_border.is_reconstructable(tol=1e-8), "Should be reconstructable at 1e-8 (kappa_u < 11.5)"
+        assert not diag_border.is_reconstructable(tol=1e-10), "Should NOT be reconstructable at 1e-10 (kappa_u > 10.0)"
 
 
 class TestAttainableRegionBoundary:
