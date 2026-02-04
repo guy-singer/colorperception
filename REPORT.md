@@ -152,8 +152,15 @@ Tests are organized by module. Run `pytest tests/ -v` for current counts.
 
 **Compression round-trip:**
 ```
-u = T_κ⁻¹(T_κ(u))  — holds when κ||u|| < 15
+u = T_κ⁻¹(T_κ(u))  — mathematically exact
 ```
+In float64, empirical relative error stays:
+- Below 10⁻⁸ up to κ||u|| ≈ 11.7
+- Below 10⁻⁶ up to κ||u|| ≈ 15.8
+- Beyond κ||u|| ≈ 17.6 (invertibility cap): reconstruction undefined
+
+See Section 5.0 and `roundtrip_error_profile.png` for the full precision profile.
+The warning threshold (15) is a **policy flag** for `is_safe()`, not a correctness boundary.
 
 **Full mapping round-trip:**
 ```
@@ -251,10 +258,10 @@ Four distinct concepts that must not be conflated:
 ### Contract B: Float64 Numerical Behavior (Implementation)
 
 **Compression:**
-- `tanh(x) = 1.0` (indistinguishable in float64) when x > ~18.4
-- Warning threshold: κ||u|| > 15
-- Saturation threshold: κ||u|| > 18
-- **Implementation includes boundary clamping** — not a true diffeomorphism at saturation
+- Implementation clamps ||v|| to R_MAX = 1 − 10⁻¹⁵
+- Invertibility cap: atanh(R_MAX) ≈ 17.6 (the effective hard limit)
+- Warning threshold: κ||u|| > 15 (policy flag, not a precision boundary)
+- Float64 tanh rounding: tanh(x) = 1.0 at x ≈ 19.1 (superseded by R_MAX clamp)
 
 **Measured reconstruction reliability:**
 
@@ -287,7 +294,7 @@ The following table shows empirically measured roundtrip error `|u - T_κ⁻¹(T
 
 **Strict mode (`strict_domain=True`):**
 - Raises `DomainViolation` if any LMS ≤ 0
-- Guarantees smoothness claims apply
+- Required for smoothness claims to hold
 - Use for mathematical validation
 
 **Image mode (`strict_domain=False`, default):**
@@ -413,21 +420,30 @@ This generates a timestamped manifest with:
 
 This package assumes LMS cone responses as input. The XYZ→LMS conversion is **explicitly external** to Part I of the theory. Different matrix choices (HPE, CAT02, Stockman-Sharpe) will produce different results. The `examples/` directory includes HPE-based demos, but this is a placeholder, not a validated choice.
 
-### 7.2 Float64 tanh Saturation
+### 7.2 Float64 Numerical Boundaries
 
-**Critical numerical limitation**: For float64, `tanh(x) ≈ 1.0` when x > ~18.4.
+Two distinct numerical limits affect the mapping:
 
-This means:
-- When κ||u|| > 18, the compression loses information
-- Reconstruction via `arctanh(||v||)` cannot recover the original ||u||
-- Hyperbolic distances become capped at ~18.4
+**1. Implementation cap (R_MAX):**
+- The disk is clamped to ||v|| ≤ R_MAX = 1 − 10⁻¹⁵
+- This induces an **effective invertibility cap** at atanh(R_MAX) ≈ 17.6
+- Beyond this, reconstruction cannot recover the original κ||u|| value
 
-**API Contract**: The right-inverse Φ̃θ⁻¹ ∘ Φθ ≈ id holds **ONLY** when κ||u|| < 15 (conservatively).
+**2. Float64 tanh rounding (secondary):**
+- `tanh(x)` returns exactly 1.0 at x ≈ 19.1 (platform-dependent)
+- This is superseded by the R_MAX clamp, so is not the limiting factor
+
+**API Contract**: The right-inverse Φ̃θ⁻¹ ∘ Φθ ≈ id is empirically validated:
+- Relative error < 10⁻⁸ when κ||u|| < 11.7
+- Relative error < 10⁻⁶ when κ||u|| < 15.8
+- Beyond κ||u|| ≈ 17.6: reconstruction undefined (see Section 5.0)
+
+**The warning threshold (15)** is a policy flag for `is_safe()`, not a precision boundary.
 
 **Mitigation**:
 - Use `compression_saturation_diagnostics(u, theta)` to detect saturation
-- Use `suggest_kappa_for_max_u_norm(max_norm)` to choose κ for your data
-- For sRGB: κ ≤ 2.0 safe; for Rec.2020: κ ≤ 1.4 safe
+- Use `suggest_kappa_for_max_u_norm(max_u, tol=1e-8)` to choose κ for your data
+- Recommended κ (tol=1e-8, 90% safety): sRGB ≈ 1.7, Display P3 ≈ 1.7, Rec.2020 ≈ 1.2
 
 ### 7.3 Open Disk vs Implementation Clamping
 
@@ -529,6 +545,40 @@ eigenvalues = np.linalg.eigvalsh(G_LMS)
 
 This section documents the key experimental validations performed and their quantitative results.
 
+### 8.0 Parameters Used in Experiments
+
+**Default θ (`Theta.default()`):**
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| w_L | 1.0 | L cone luminance weight |
+| w_M | 1.0 | M cone luminance weight |
+| γ | 1.0 | L/M opponent mixing (uncalibrated) |
+| β | 0.5 | S/(L+M) opponent weight (uncalibrated) |
+| ε | 0.01 | Luminance floor |
+| κ | 1.0 | Radial compression gain |
+
+**D65-calibrated θ (`Theta.from_whitepoint(L_w, M_w, S_w)`):**
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| w_L | 1.0 | L cone luminance weight |
+| w_M | 1.0 | M cone luminance weight |
+| γ | 0.9589 | Calibrated: L_white/M_white |
+| β | 0.5474 | Calibrated: S_white/(L_white+M_white) |
+| ε | 0.01 | Luminance floor |
+| κ | 1.0 | Radial compression gain |
+
+**D65 whitepoint in LMS (Hunt-Pointer-Estevez matrix):**
+
+| Coordinate | Value |
+|------------|-------|
+| L_white | 0.9737 |
+| M_white | 1.0155 |
+| S_white | 1.0888 |
+
+**Note:** Most experiments use D65-calibrated θ unless otherwise stated. The HPE matrix is used for XYZ→LMS throughout.
+
 ### 8.1 Figure Index
 
 | Figure | Script | Key Result |
@@ -538,7 +588,7 @@ This section documents the key experimental validations performed and their quan
 | `gamut_boundary_analysis.png` | `gamut_boundary_analysis.py` | Area fraction ~61% (κ=1, D65) |
 | `kappa_sensitivity.png` | `gamut_boundary_analysis.py` | Area varies with κ |
 | `discrimination_ellipses.png` | `metric_analysis.py` | Metric diverges at boundary |
-| `sensitivity_heatmap.png` | `metric_analysis.py` | Jacobian norm across disk |
+| `sensitivity_heatmap.png` | `metric_analysis.py` | Jacobian norm + metric trace in LMS |
 | `distance_comparison.png` | `metric_analysis.py` | Hilbert~Bures correlation r≈0.98 |
 | `srgb_grid_analysis.png` | `srgb_grid_analysis.py` | max ||u|| ≈ 6.06 for sRGB |
 | `srgb_analysis.png` | `wide_gamut_analysis.py` | sRGB gamut in disk |
@@ -557,7 +607,13 @@ This section documents the key experimental validations performed and their quan
 
 **File:** `examples/roundtrip_error_profile.png`, `examples/compression_roundtrip_profile.json`
 
+**Script:** `examples/roundtrip_precision_profile.py`
+
 **Purpose:** Validate the measured thresholds for reconstruction reliability.
+
+**θ parameters:** κ=1.0 (profiling the compression function T_κ itself)
+
+**Sampling:** Log-spaced κ||u|| from 0.1 to 25 (n=1000)
 
 **Computation:**
 1. Generate κ||u|| values from 0.1 to 25 (log-spaced, n=1000)
@@ -578,7 +634,13 @@ This section documents the key experimental validations performed and their quan
 
 **File:** `examples/gamut_boundary_analysis.png`, `examples/attainable_area_stats_*.json`
 
+**Script:** `examples/gamut_boundary_analysis.py`
+
 **Purpose:** Visualize non-surjectivity of Φ_θ.
+
+**θ parameters:** D65-calibrated (γ=0.9589, β=0.5474), ε=0.01, κ=1.0
+
+**Sampling:** 720 hue angles, 100×100 polar grid for area computation
 
 **Computation:**
 1. For each hue angle φ (720 samples), compute max ||u|| in attainable region
@@ -589,7 +651,7 @@ This section documents the key experimental validations performed and their quan
 - Area fraction (polar): 0.6115
 - Area fraction (grid): 0.6128
 - Discrepancy: 0.0012 < 0.02 ✓
-- Max ||v|| varies by hue: 0.50 (yellow) to 1.0 (blue)
+- Max ||v|| varies by hue: 0.50 (yellow) to ≈1 (approaches boundary in blue direction)
 
 **Interpretation:** With D65 calibration, ~61% of the Bloch disk is attainable. The unreachable region (~39%) is a fundamental geometric constraint from the positivity of LMS, not a numerical limitation.
 
@@ -597,7 +659,13 @@ This section documents the key experimental validations performed and their quan
 
 **File:** `examples/discrimination_ellipses.png`
 
+**Script:** `examples/metric_analysis.py`
+
 **Purpose:** Visualize the Klein metric structure on the Bloch disk.
+
+**θ parameters:** D65-calibrated (γ=0.9589, β=0.5474), ε=0.01, κ=1.0
+
+**Sampling:** 7×7 regular grid in Bloch disk (||v|| < 0.9)
 
 **Computation:**
 1. Sample 7×7 grid of points with ||v|| < 0.9
@@ -620,7 +688,13 @@ This section documents the key experimental validations performed and their quan
 
 **File:** `examples/distance_comparison.png`, `examples/distance_comparison.stats.json`
 
+**Script:** `examples/metric_analysis.py`
+
 **Purpose:** Compare quantum distance measures with Hilbert distance.
+
+**θ parameters:** N/A (distances computed directly on Bloch vectors)
+
+**Sampling:** 500 random point pairs, uniform in polar (r ∈ [0.1, 0.9], seed=42)
 
 **Computation:**
 1. Sample 500 random point pairs in disk (uniform in polar: r ∈ [0.1, 0.9], θ ∈ [-π, π])
@@ -652,7 +726,15 @@ This section documents the key experimental validations performed and their quan
 
 **Files:** `examples/srgb_grid_analysis.png`, `examples/display_p3_analysis.png`, `examples/rec.2020_analysis.png`, `examples/gamut_comparison.png`
 
+**Script:** `examples/wide_gamut_analysis.py`
+
 **Purpose:** Validate that standard color spaces stay within safe κ||u|| bounds.
+
+**θ parameters:** D65-calibrated (γ=0.9589, β=0.5474), ε=0.01, κ=1.0 (and κ=recommended)
+
+**Sampling:** 25³ = 15,625 RGB grid points per color space
+
+**Matrices:** sRGB/P3/Rec.2020 → XYZ (standard matrices), XYZ → LMS (HPE)
 
 **Key Results (from `*_metadata.json`):**
 
@@ -667,9 +749,9 @@ This section documents the key experimental validations performed and their quan
 **κ recommendation policy:**
 - `suggest_kappa_for_max_u_norm(max_u, tol=1e-8, safety=0.9)` targets κ||u|| < 0.9 × 11.7 = 10.5
 - For sRGB (max ||u|| ≈ 6.06): κ_rec ≈ 10.5/6.06 ≈ 1.73
-- This ensures reconstruction error < 10⁻⁸ with 10% safety margin
+- This targets reconstruction error < 10⁻⁸ with 10% safety margin
 
-**Interpretation:** All three standard color spaces produce max ||u|| < 9, which is safe for κ=1. The recommended κ (from `suggest_kappa_for_max_u_norm`) ensures max κ||u|| < 10.5 for all gamuts, guaranteeing reconstruction tolerance below 10⁻⁸.
+**Interpretation:** All three standard color spaces produce max ||u|| < 9, which is safe for κ=1. The recommended κ (from `suggest_kappa_for_max_u_norm`) targets max κ||u|| < 10.5 for all gamuts, empirically validated to achieve reconstruction tolerance below 10⁻⁸ on the profiling grid.
 
 ### 8.7 Plot Card: Image Decomposition Demo
 
@@ -704,19 +786,24 @@ This section documents the key experimental validations performed and their quan
 
 **Script:** `examples/metric_analysis.py`
 
-**Purpose:** Visualize how mapping sensitivity varies across the Bloch disk.
+**Purpose:** Visualize how mapping sensitivity varies across the LMS input space.
 
 **Computation:**
-1. Create 50×50 grid over Bloch disk (||v|| < 0.95)
-2. At each point, compute det(G_Klein)^(1/2) = (1 - ||v||²)^(-3/2)
-3. Color by log₁₀(√det(G))
+1. Create 30×30 grid in sRGB space (R, B varied, G=0.5 fixed)
+2. Convert sRGB → XYZ → LMS (HPE matrix)
+3. At each LMS point, compute:
+   - Jacobian norm ||J_Φθ(lms)||_F (Frobenius norm)
+   - Metric trace tr(G_LMS) where G_LMS is the pullback metric
 
-**Key Results:**
-- At center (v=0): √det(G) = 1 (unit sensitivity)
-- At ||v|| = 0.9: √det(G) ≈ 12
-- At ||v|| = 0.95: √det(G) ≈ 31
+**Key Results (from console output):**
+- Jacobian norm: min ≈ 1.95, max ≈ 5.67
+- Metric trace: min ≈ 5.0, max ≈ 76.4
 
-**Interpretation:** Sensitivity to small perturbations increases dramatically near the boundary. This is the hyperbolic geometry's prediction: saturated colors have finer discrimination than achromatic colors.
+**Two panels:**
+- Left: log₁₀(||J||) — shows how the mapping amplifies perturbations
+- Right: log₁₀(tr(G_LMS)) — shows total metric sensitivity at each point
+
+**Interpretation:** High sensitivity (bright regions) indicates colors where small LMS changes produce large Bloch-space changes. These correspond to colors near the attainable region boundary.
 
 ### 8.9 Plot Card: Demo Artifacts
 
