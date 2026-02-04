@@ -73,6 +73,22 @@ from chromabloch.jacobian import (
     jacobian_condition_number,
     verify_scale_invariance_jacobian,
 )
+from chromabloch.metric import (
+    klein_metric_tensor,
+    pullback_metric_lms,
+    metric_eigenvalues,
+    metric_trace,
+    discrimination_ellipsoid_axes,
+    chromaticity_plane_ellipse,
+)
+from chromabloch.quantum_distances import (
+    trace_distance,
+    fidelity,
+    bures_distance,
+    fubini_study_distance,
+    relative_entropy,
+    compare_distances,
+)
 
 __version__ = "0.1.0"
 
@@ -131,4 +147,18 @@ __all__ = [
     "jacobian_norm",
     "jacobian_condition_number",
     "verify_scale_invariance_jacobian",
+    # metric
+    "klein_metric_tensor",
+    "pullback_metric_lms",
+    "metric_eigenvalues",
+    "metric_trace",
+    "discrimination_ellipsoid_axes",
+    "chromaticity_plane_ellipse",
+    # quantum distances
+    "trace_distance",
+    "fidelity",
+    "bures_distance",
+    "fubini_study_distance",
+    "relative_entropy",
+    "compare_distances",
 ]

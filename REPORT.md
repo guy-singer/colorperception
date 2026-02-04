@@ -56,7 +56,9 @@ where σ₁, σ₂ are the real Pauli matrices.
 | `reconstruction.py` | Luminance-conditioned inverse and positivity checks |
 | `geometry.py` | Hilbert distance (Klein + cross-ratio), Klein gyroaddition |
 | `mathutils.py` | Attainable region boundary, sampling, and validation |
-| `jacobian.py` | Analytic and finite-difference Jacobian, sensitivity metrics |
+| `jacobian.py` | Analytic, finite-diff, and complex-step Jacobian; sensitivity metrics |
+| `metric.py` | Klein metric tensor, pullback metric, discrimination ellipsoids |
+| `quantum_distances.py` | Trace, Bures, Fubini-Study distances; fidelity; comparison tools |
 | `demo.py` | Artifact generation for validation |
 
 ### 2.2 Numerical Stability
