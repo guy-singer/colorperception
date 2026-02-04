@@ -48,14 +48,15 @@ where σ₁, σ₂ are the real Pauli matrices.
 
 | Module | Purpose |
 |--------|---------|
-| `params.py` | Theta dataclass with validation and serialization |
+| `params.py` | Theta dataclass with validation, serialization, and whitepoint calibration |
 | `opponent.py` | Opponent transform O and matrix A_θ |
-| `compression.py` | Radial compression T_κ and inverse |
-| `mapping.py` | Full map Φ_θ and chromaticity projection Π |
+| `compression.py` | Radial compression T_κ, inverse, and saturation diagnostics |
+| `mapping.py` | Full map Φ_θ, chromaticity projection Π, strict/image mode handling |
 | `density.py` | Density matrix ρ(v), entropy, saturation, hue |
 | `reconstruction.py` | Luminance-conditioned inverse and positivity checks |
-| `geometry.py` | Hilbert distance and Klein gyroaddition |
-| `mathutils.py` | Attainable region boundary and validation |
+| `geometry.py` | Hilbert distance (Klein + cross-ratio), Klein gyroaddition |
+| `mathutils.py` | Attainable region boundary, sampling, and validation |
+| `jacobian.py` | Analytic and finite-difference Jacobian, sensitivity metrics |
 | `demo.py` | Artifact generation for validation |
 
 ### 2.2 Numerical Stability
@@ -63,24 +64,19 @@ where σ₁, σ₂ are the real Pauli matrices.
 **Compression near origin (T_κ for ||u|| → 0):**
 - Threshold: r₀ = 10⁻⁸
 - Series expansion: tanh(κr)/r ≈ κ - κ³r²/3
-- Implementation: `compression.py`, lines 22-31
 
 **Decompression near origin (T_κ⁻¹ for ||v|| → 0):**
 - Series expansion: arctanh(r)/r ≈ 1 + r²/3
-- Implementation: `compression.py`, lines 50-58
 
 **Decompression near boundary (||v|| → 1):**
 - Clamp: r_safe = min(||v||, 1 - 10⁻¹²)
-- Implementation: `compression.py`, line 48
 
 **Boundary clamping after compression:**
 - Ensure ||v|| < 1 by scaling: v *= (1 - 10⁻¹²)/||v|| if needed
-- Implementation: `compression.py`, lines 36-40
 
 **Hilbert distance numerical stability:**
 - Clamp squared norms: ||p||², ||q||² ≤ 1 - 10⁻¹⁵
 - Clamp arcosh argument: max(arg, 1.0)
-- Implementation: `geometry.py`, lines 46-58
 
 ### 2.3 Clamping Policies
 
@@ -94,107 +90,185 @@ where σ₁, σ₂ are the real Pauli matrices.
 
 ---
 
-## 3. Validation
+## 3. Domain and Practical Input Handling
 
-### 3.1 Test Coverage
+### 3.1 Strict vs Image Mode
 
-| Test Module | Tests | Key Validations |
-|-------------|-------|-----------------|
-| `test_opponent.py` | 8 | Matrix form, achromatic point, determinant |
-| `test_compression.py` | 12 | Origin mapping, disk boundedness, round-trip |
-| `test_density.py` | 18 | ρ properties, trace=1, det formula, round-trip |
-| `test_attainable_region.py` | 10 | Boundary function, LMS→region, sufficiency |
-| `test_mapping_roundtrip.py` | 14 | Full round-trip, achromatic locus, positivity |
-| `test_geometry.py` | 18 | Hilbert distance, triangle inequality, gyroaddition |
+The mapping supports two operational modes via the `strict_domain` parameter:
 
-### 3.2 Critical Identity Tests
+| | ε = 0 | ε > 0 |
+|---|---|---|
+| **strict_domain=True** | Raises if LMS ≤ 0 | Raises if LMS ≤ 0 |
+| **strict_domain=False** | Raises if Y + ε ≤ 0 | Clips LMS < 0 to 0 (safe) |
 
-**Density matrix round-trip:**
-```
-v = bloch_from_rho(rho_of_v(v))
-```
-Tested in `test_density.py::TestBlochFromRho::test_roundtrip`
+**Strict mode (mathematical validation):**
+- Enforces theoretical domain LMS ∈ ℝ³₊₊
+- Raises `DomainViolation` on any non-positive input
+- Φ_θ is smooth on this domain
 
-**Factor-of-2 correctness:**
-```
-v₂ = 2b (NOT v₂ = b)
-```
-Tested in `test_density.py::TestBlochFromRho::test_factor_of_two_correct`
+**Image mode (practical processing):**
+- Clips negative LMS to 0 with warning
+- Counts clipped values in diagnostics
+- Piecewise smooth (non-smooth at clipping boundary)
+- Still raises if ε = 0 and Y ≤ 0 would cause division by zero
+
+### 3.2 Zero-Input Handling
+
+| Input | ε = 0 | ε > 0 |
+|-------|-------|-------|
+| Black (0,0,0) | Raises (Y=0) | Maps to (0,0) ✓ |
+| Single cone [L,0,0] | May work if Y>0 | Works ✓ |
+| Near-zero [1e-10,...] | Numerically unstable | Stable ✓ |
+
+**Recommendation:** Use ε > 0 (default 0.01) for all practical applications.
+
+---
+
+## 4. Validation
+
+### 4.1 Test Suite
+
+Tests are organized by module. Run `pytest tests/ -v` for current counts.
+
+| Test Module | Key Validations |
+|-------------|-----------------|
+| `test_opponent.py` | Matrix form, achromatic point, determinant |
+| `test_compression.py` | Origin mapping, disk boundedness, round-trip |
+| `test_density.py` | ρ properties, trace=1, det formula, round-trip |
+| `test_attainable_region.py` | Boundary function, LMS→region, sufficiency |
+| `test_mapping_roundtrip.py` | Full round-trip, achromatic locus, positivity |
+| `test_geometry.py` | Hilbert distance, triangle inequality, gyroaddition |
+| `test_saturation_stress.py` | tanh saturation, scaling laws, boundary behavior |
+| `test_independent_validation.py` | Cross-ratio vs Klein, zero handling, feasibility |
+| `test_jacobian.py` | Analytic vs finite-diff, sensitivity metrics |
+
+### 4.2 Critical Identity Tests
 
 **Compression round-trip:**
 ```
-u = T_κ⁻¹(T_κ(u))
+u = T_κ⁻¹(T_κ(u))  — holds when κ||u|| < 15
 ```
-Tested in `test_compression.py::TestRoundTrip`
 
 **Full mapping round-trip:**
 ```
-LMS = Φ̃_θ⁻¹(Φ_θ(LMS); Y(LMS))
+LMS = Φ̃_θ⁻¹(Φ_θ(LMS); Y(LMS))  — holds in non-saturated regime
 ```
-Tested in `test_mapping_roundtrip.py::TestReconstructLms`
 
-**Attainable region membership:**
+**Scale invariance (ε = 0):**
 ```
-For all (L,M,S) ∈ ℝ_{>0}³: u⁽⁰⁾(L,M,S) ∈ attainable region
+Φ_θ(t·x) = Φ_θ(x) for all t > 0
 ```
-Tested in `test_attainable_region.py::TestRandomLMSInRegion`
+
+**Scaling law (ε > 0):**
+```
+u^(ε)(tx) = t(Y+ε)/(tY+ε) · u^(ε)(x)
+```
 
 **Hilbert distance via gyroaddition:**
 ```
 d_H(u, v) = arctanh(||(-u) ⊕ v||)
 ```
-Tested in `test_geometry.py::TestKleinGyroadd::test_distance_via_gyroaddition`
 
-### 3.3 Independent Validation
-
-To strengthen confidence beyond round-trip tests (which can be "self-referential"), we added independent validation:
+### 4.3 Independent Validation
 
 **Hilbert Distance: Klein vs Cross-Ratio**
 
-Two completely different computational methods for the same quantity:
+Two computationally independent methods:
 
 1. **Klein formula**: `d_H = arcosh((1 - ⟨p,q⟩) / √((1-||p||²)(1-||q||²)))`
 2. **Cross-ratio formula**: `d_H = (1/2)|log((|a⁺-p||a⁻-q|) / (|a⁺-q||a⁻-p|))|`
 
-where a⁺, a⁻ are the boundary intersection points of the line through p and q.
+Agreement to < 10⁻⁸ across random point pairs.
 
-Test results:
-- 100 random point pairs: Maximum deviation < 10⁻⁸
-- Points near origin: Maximum deviation < 10⁻⁷
-- Points near boundary: Maximum deviation < 10⁻⁶
-- Collinear with origin: Matches `arctanh` formula to 10⁻¹⁰
+**Jacobian: Analytic vs Finite-Difference**
 
-This provides strong evidence that the geometry implementation is correct.
+- Analytic Jacobian derived via chain rule through all three stages
+- Validated against central finite differences
+- Agreement to rtol < 10⁻⁴ (limited by finite-diff precision)
 
-### 3.4 Zero-Input Handling
-
-**Policy**: When ε > 0 (default), exact zeros are safe inputs.
-
-| Input | ε = 0 | ε > 0 |
-|-------|-------|-------|
-| Black (0,0,0) | NaN/Inf (Y=0) | (0,0) ✓ |
-| Single cone [L,0,0] | May work | Works ✓ |
-| Near-zero [1e-10,...] | Unstable | Stable ✓ |
-
-**Implementation**: Demo pipelines use `np.maximum(lms, 0.0)` (not `1e-10`) when ε > 0.
-
-### 3.5 Tolerances
+### 4.4 Tolerances
 
 | Test Category | Relative Tolerance | Absolute Tolerance |
 |---------------|-------------------|-------------------|
-| Round-trip LMS | 10⁻⁹ | — |
+| Round-trip LMS | 10⁻⁸ | — |
 | Round-trip v | 10⁻¹⁰ | — |
 | Achromatic mapping | — | 10⁻¹⁰ |
-| Distance symmetry | 10⁻¹⁰ | — |
-| Triangle inequality | — | 10⁻¹⁰ |
+| Jacobian analytic vs FD | 10⁻⁴ | 10⁻⁸ |
 
 ---
 
-## 4. Generated Artifacts
+## 5. Numerical Contracts
+
+This section explicitly separates mathematical guarantees from numerical behavior.
+
+### Contract A: Mathematical Guarantees (Ideal Map)
+
+**Compression T_κ:**
+- T_κ: ℝ² → D is a diffeomorphism (bijective, smooth, smooth inverse)
+- For all u ∈ ℝ², ||T_κ(u)|| < 1 (strict inequality)
+- T_κ⁻¹ exists and is smooth on D
+
+**Full map Φ_θ:**
+- Smooth on ℝ³₊₊ (strictly positive LMS)
+- Scale-invariant when ε = 0
+
+**Reconstruction:**
+- Φ̃_θ⁻¹(v; Y) is well-defined for v ∈ D and Y > 0
+- Φ̃_θ⁻¹(Φ_θ(x); Y(x)) = x exactly (right-inverse identity)
+
+### Contract B: Float64 Numerical Behavior (Implementation)
+
+**Compression:**
+- `tanh(x) = 1.0` (indistinguishable in float64) when x > ~18.4
+- Warning threshold: κ||u|| > 15
+- Saturation threshold: κ||u|| > 18
+- **Implementation includes boundary clamping** — not a true diffeomorphism at saturation
+
+**Reconstruction reliability:**
+- Roundtrip error < 10⁻⁸ when κ||u|| < 15 (empirically validated)
+- Beyond threshold: arctanh(tanh(κ||u||)) ≠ κ||u||, reconstruction unreliable
+
+**Boundary clamping:**
+- Implementation clamps ||v|| to 1 - 10⁻¹² if tanh produces exactly 1.0
+- Reported ||v|| = 1.0000 may actually be 0.999999999999
+
+### Contract C: Domain Extension (Strict vs Image Mode)
+
+**Strict mode (`strict_domain=True`):**
+- Raises `DomainViolation` if any LMS ≤ 0
+- Guarantees smoothness claims apply
+- Use for mathematical validation
+
+**Image mode (`strict_domain=False`, default):**
+- Clips negative LMS to 0 with warning (counted in diagnostics)
+- Raises if ε = 0 and Y + ε ≤ 0 (division by zero unavoidable)
+- Safe when ε > 0: black pixels map to origin
+- **Piecewise smooth only** (non-smooth at clipping boundary)
+
+### Contract D: API Safety Invariants
+
+```python
+# Safe usage pattern:
+v, diag = phi_theta_with_diagnostics(lms, theta)
+if diag.is_safe():
+    # is_safe() checks:
+    #   - n_negative_clipped == 0
+    #   - n_saturated == 0
+    #   - n_boundary_clamped == 0
+    lms_reconstructed = reconstruct_lms(v, Y, theta)
+    # Empirically validated: ||lms_reconstructed - lms|| < 1e-8
+else:
+    # Inspect diag.summary() for details
+    # Reconstruction may be unreliable
+```
+
+---
+
+## 6. Generated Artifacts
 
 Running `python -m chromabloch.demo` generates:
 
-### 4.1 Plots
+### 6.1 Plots
 
 | File | Description |
 |------|-------------|
@@ -202,7 +276,7 @@ Running `python -m chromabloch.demo` generates:
 | `u_region.png` | Attainable chromaticity region with boundary line |
 | `saturation_hue_wheel.png` | Polar visualization of entropy and saturation |
 
-### 4.2 Data Files
+### 6.2 Data Files
 
 | File | Contents |
 |------|----------|
@@ -210,9 +284,8 @@ Running `python -m chromabloch.demo` generates:
 | `run_info.json` | Timestamp, Python/NumPy versions, seed, git commit |
 | `arrays.npz` | NumPy arrays: lms, v, r, hue, entropy, saturation |
 
-### 4.3 Storage Convention
+### 6.3 Storage Convention
 
-All outputs are stored in:
 ```
 results/YYYYMMDD_HHMMSS/
 ├── plots/
@@ -224,81 +297,17 @@ results/YYYYMMDD_HHMMSS/
 └── arrays.npz
 ```
 
-Previous runs are never overwritten.
-
 ---
 
-## 5. Numerical Contracts
+## 7. Known Limitations
 
-This section explicitly separates mathematical guarantees from numerical behavior.
-
-### Contract A: Mathematical Guarantees
-
-**Map Φ_θ:**
-- T_κ: ℝ² → D is a diffeomorphism (bijective, smooth inverse)
-- For all u ∈ ℝ², ||T_κ(u)|| < 1 (strict inequality)
-- T_κ⁻¹ exists and is smooth on D
-
-**Reconstruction:**
-- Φ̃_θ⁻¹(v; Y) is well-defined for v ∈ D and Y > 0
-- Φ̃_θ⁻¹(Φ_θ(x); Y(x)) = x exactly (right-inverse identity)
-
-**Domain:**
-- Theory assumes LMS ∈ ℝ³₊₊ (strictly positive)
-- Achromatic locus: O₁ = O₂ = 0 ↔ v = (0, 0)
-
-### Contract B: Float64 Numerical Behavior
-
-**Compression:**
-- tanh(x) = 1.0 (indistinguishable in float64) when x > ~18.4
-- Warning threshold: κ||u|| > 15
-- Saturation threshold: κ||u|| > 18
-
-**Reconstruction reliability:**
-- Roundtrip T_κ⁻¹(T_κ(u)) ≈ u holds when κ||u|| < 15 (conservative)
-- Beyond threshold: arctanh(tanh(κ||u||)) ≠ κ||u||, reconstruction unreliable
-
-**Boundary clamping:**
-- Implementation clamps ||v|| to 1 - 10⁻¹² if tanh produces exactly 1.0
-- Reported ||v|| = 1.0000 may actually be 0.999999999999
-
-### Contract C: Domain Extension for Images
-
-**Strict mode (strict_domain=True):**
-- Raises DomainViolation if any LMS ≤ 0
-- Raises if ε = 0 and Y ≤ 0
-- Use for mathematical validation
-
-**Image mode (strict_domain=False, default):**
-- Clips negative LMS to 0 with warning
-- Safe when ε > 0 (division by Y + ε never zero)
-- Black pixels (0, 0, 0) map to origin with calibrated θ
-- Use for real image processing
-
-### Contract D: API Invariants
-
-```python
-# Safe usage pattern:
-v, diag = phi_theta_with_diagnostics(lms, theta)
-if diag.is_safe():
-    lms_reconstructed = reconstruct_lms(v, Y, theta)
-    # Guaranteed: ||lms_reconstructed - lms|| < 1e-8
-else:
-    # Check diag.n_saturated, diag.n_negative_clipped
-    # Reconstruction may be unreliable
-```
-
----
-
-## 6. Known Limitations
-
-### 5.1 LMS Conversion is External
+### 7.1 LMS Conversion is External
 
 This package assumes LMS cone responses as input. The XYZ→LMS conversion is **explicitly external** to Part I of the theory. Different matrix choices (HPE, CAT02, Stockman-Sharpe) will produce different results. The `examples/` directory includes HPE-based demos, but this is a placeholder, not a validated choice.
 
-### 5.2 Float64 tanh Saturation
+### 7.2 Float64 tanh Saturation
 
-**Critical numerical limitation**: For float64, `tanh(x) ≈ 1.0` (indistinguishable) when x > ~18.4.
+**Critical numerical limitation**: For float64, `tanh(x) ≈ 1.0` when x > ~18.4.
 
 This means:
 - When κ||u|| > 18, the compression loses information
@@ -310,17 +319,17 @@ This means:
 **Mitigation**:
 - Use `compression_saturation_diagnostics(u, theta)` to detect saturation
 - Use `suggest_kappa_for_max_u_norm(max_norm)` to choose κ for your data
-- Run `examples/srgb_grid_analysis.py` to calibrate κ for the sRGB gamut
+- For sRGB: κ ≤ 2.0 safe; for Rec.2020: κ ≤ 1.4 safe
 
-### 5.3 Open Disk Representation
+### 7.3 Open Disk vs Implementation Clamping
 
-The LaTeX defines the Bloch disk as **open**: D = {v : ||v|| < 1}. Numerically, we enforce:
-- After compression: scale v to (1 - 10⁻¹²)·v̂ if ||v|| ≥ 1
-- All functions use `DISK_EPS = 1e-12` for boundary handling
+The LaTeX defines the Bloch disk as **open**: D = {v : ||v|| < 1}.
 
-When printing or displaying ||v||, values like `1.0000` may actually be `0.999999999999` internally.
+**Mathematical (Contract A):** ||v|| < 1 always, T_κ is a true diffeomorphism.
 
-### 5.4 Parameters Not Calibrated
+**Numerical (Contract B):** Implementation clamps ||v|| to 1 - 10⁻¹² when tanh saturates. This breaks true invertibility at the boundary.
+
+### 7.4 Parameters Not Calibrated
 
 The default θ values are **mathematical placeholders**, not psychophysically validated:
 
@@ -334,13 +343,13 @@ The default θ values are **mathematical placeholders**, not psychophysically va
 
 **Whitepoint calibration**: Use `Theta.from_whitepoint(L, M, S)` to set γ, β so that a chosen neutral maps to the origin.
 
-### 5.5 Reconstruction Limitations
+### 7.5 Reconstruction Limitations
 
-1. **Positivity not guaranteed**: `reconstruct_lms(v, Y)` may produce negative L, M, or S for chromaticities outside the attainable region at the given luminance. Use `positivity_conditions(v, Y, theta)` before reconstruction.
+1. **Positivity not guaranteed**: `reconstruct_lms(v, Y)` may produce negative L, M, or S for chromaticities outside the attainable region at the given luminance.
 
-2. **Saturation regime**: Reconstruction is numerically unreliable when the original κ||u|| exceeded ~18. No warning is raised; the result will simply be incorrect.
+2. **Saturation regime**: Reconstruction is numerically unreliable when the original κ||u|| exceeded ~18.
 
-### 5.6 Perceptual Validity Not Established
+### 7.6 Perceptual Validity Not Established
 
 This implementation is a **faithful realization of Part I mathematics**. It does **NOT** establish:
 - Hue angles match human hue perception
@@ -350,13 +359,13 @@ This implementation is a **faithful realization of Part I mathematics**. It does
 
 Perceptual validation requires Part II calibration work.
 
-### 5.7 Single Observer Model
+### 7.7 Single Observer Model
 
 No inter-observer variability or chromatic adaptation states are modeled. The mapping is deterministic for a fixed θ.
 
 ---
 
-## 6. Next Steps for Part II
+## 8. Next Steps for Part II
 
 1. **Parameter calibration**: Fit θ to MacAdam ellipse data or modern color-difference datasets.
 
@@ -368,9 +377,11 @@ No inter-observer variability or chromatic adaptation states are modeled. The ma
 
 5. **Psychophysical evaluation**: Compare predicted distances against human discrimination thresholds.
 
+6. **Induced metric analysis**: Use Jacobian to compute pullback metric on LMS space.
+
 ---
 
-## 7. References
+## 9. References
 
 1. Part I derivations v8.tex (this repository)
 2. Berthier, M. (2020). Geometry of color perception. Part 2: perceived colors from real quantum states and Hering's rebit. *J. Math. Neurosci.*, 10:14.

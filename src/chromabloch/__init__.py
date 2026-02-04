@@ -68,8 +68,10 @@ from chromabloch.mathutils import (
 from chromabloch.jacobian import (
     jacobian_phi_finite_diff,
     jacobian_phi_analytic,
+    jacobian_phi_complex_step,
     jacobian_norm,
     jacobian_condition_number,
+    verify_scale_invariance_jacobian,
 )
 
 __version__ = "0.1.0"
@@ -125,6 +127,8 @@ __all__ = [
     # jacobian
     "jacobian_phi_finite_diff",
     "jacobian_phi_analytic",
+    "jacobian_phi_complex_step",
     "jacobian_norm",
     "jacobian_condition_number",
+    "verify_scale_invariance_jacobian",
 ]

@@ -146,20 +146,19 @@ class TestTrueZeroBehavior:
             assert not np.any(np.isinf(v)), f"Inf for LMS={lms}"
             assert np.linalg.norm(v) < 1.0, f"Outside disk for LMS={lms}"
 
-    def test_epsilon_zero_requires_strict_positive(self):
-        """With ε=0, zero inputs cause division by zero."""
-        theta = Theta(epsilon=0.0)
+    def test_epsilon_zero_raises_for_zero_luminance(self):
+        """With ε=0, zero luminance raises DomainViolation."""
+        from chromabloch.mapping import DomainViolation
         
-        # This SHOULD produce inf or nan (or be caught)
+        theta = Theta(epsilon=0.0)
         lms_black = np.array([0.0, 0.0, 0.0])
         
-        # The mapping will produce nan/inf when Y=0 and ε=0
-        v = phi_theta(lms_black, theta)
+        # Should raise DomainViolation, not produce nan/inf
+        with pytest.raises(DomainViolation) as exc_info:
+            phi_theta(lms_black, theta)
         
-        # We expect nan or inf (division by zero)
-        assert np.any(np.isnan(v)) or np.any(np.isinf(v)), (
-            "Expected nan/inf for black with ε=0"
-        )
+        assert "Division by zero" in str(exc_info.value)
+        assert "ε > 0" in str(exc_info.value)
 
     def test_near_zero_lms_stability(self):
         """Test stability with very small (but positive) LMS."""

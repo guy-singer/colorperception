@@ -91,6 +91,7 @@ def analyze_color_space(
     rgb_to_xyz: np.ndarray,
     n_grid: int = 25,
     output_dir: Optional[Path] = None,
+    save_metadata: bool = True,
 ) -> dict:
     """Analyze a color space gamut through the Bloch mapping.
     
@@ -187,9 +188,24 @@ def analyze_color_space(
     results['v_norm_max_k1'] = float(np.max(v_k1_norm))
     results['n_saturated_k1'] = diag_k1.n_saturated
     
+    # Track negative LMS before clipping
+    n_negative_lms = int(np.sum(lms < 0))
+    results['n_negative_lms_before_clip'] = n_negative_lms
+    results['pct_negative_lms'] = 100 * n_negative_lms / (3 * len(rgb_grid))
+    
     print(f"\nWith κ = 1.0:")
     print(f"  ||v|| max:  {results['v_norm_max_k1']:.6f}")
     print(f"  Saturated:  {diag_k1.n_saturated}")
+    print(f"\nNegative LMS before clip: {n_negative_lms} ({results['pct_negative_lms']:.2f}%)")
+    
+    # Store transformation matrices
+    results['rgb_to_xyz_matrix'] = rgb_to_xyz.tolist()
+    results['xyz_to_lms_matrix'] = M_HPE.tolist()
+    results['whitepoint'] = 'D65'
+    results['lms_matrix_name'] = 'Hunt-Pointer-Estevez'
+    results['transfer_function'] = 'sRGB-like (gamma 2.4)'
+    results['theta_gamma'] = theta.gamma
+    results['theta_beta'] = theta.beta
     
     # Plot if output directory provided
     if output_dir is not None:
@@ -236,6 +252,14 @@ def analyze_color_space(
         
         filename = name.lower().replace(" ", "_") + "_analysis.png"
         print(f"\nSaved: {output_dir / filename}")
+        
+        # Save metadata JSON
+        if save_metadata:
+            import json
+            json_name = name.lower().replace(" ", "_") + "_metadata.json"
+            with open(output_dir / json_name, 'w') as f:
+                json.dump(results, f, indent=2)
+            print(f"Saved: {output_dir / json_name}")
     
     return results
 

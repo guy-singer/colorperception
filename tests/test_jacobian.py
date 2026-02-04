@@ -7,8 +7,10 @@ from chromabloch.params import Theta
 from chromabloch.jacobian import (
     jacobian_phi_finite_diff,
     jacobian_phi_analytic,
+    jacobian_phi_complex_step,
     jacobian_norm,
     jacobian_condition_number,
+    verify_scale_invariance_jacobian,
 )
 
 
@@ -175,6 +177,87 @@ class TestJacobianConsistency:
         # But compression couples them, so both rows can have nonzero ∂/∂S
         # Still, ∂v1/∂S should be smaller than ∂v2/∂S typically
         # (This is a soft structural test)
+
+
+class TestJacobianComplexStep:
+    """Tests for complex-step derivative validation."""
+
+    def test_complex_step_matches_analytic(self):
+        """Complex-step should match analytic to near machine precision."""
+        theta = Theta.default()
+        rng = np.random.default_rng(789)
+        
+        for _ in range(30):
+            # Strictly positive LMS (no clamping)
+            lms = 10.0 ** rng.uniform(-0.3, 0.3, size=3)
+            
+            J_analytic = jacobian_phi_analytic(lms, theta)
+            J_complex = jacobian_phi_complex_step(lms, theta)
+            
+            # Complex-step should be much more accurate than finite-diff
+            np.testing.assert_allclose(
+                J_analytic, J_complex, rtol=1e-7, atol=1e-10,
+                err_msg=f"Mismatch at LMS={lms}"
+            )
+
+    def test_complex_step_better_than_finite_diff(self):
+        """Complex-step should have smaller error than finite-diff."""
+        theta = Theta.default()
+        lms = np.array([1.0, 0.9, 0.5])
+        
+        J_analytic = jacobian_phi_analytic(lms, theta)
+        J_complex = jacobian_phi_complex_step(lms, theta)
+        J_fd = jacobian_phi_finite_diff(lms, theta, eps=1e-7)
+        
+        err_complex = np.linalg.norm(J_analytic - J_complex)
+        err_fd = np.linalg.norm(J_analytic - J_fd)
+        
+        # Complex-step error should be much smaller
+        assert err_complex < err_fd * 0.01, (
+            f"Complex-step error {err_complex} not much better than FD {err_fd}"
+        )
+
+
+class TestScaleInvarianceJacobian:
+    """Tests for scale-invariance property at ε=0."""
+
+    def test_radial_direction_in_null_space_eps0(self):
+        """For ε=0, J(x)·x should be zero (scale invariance)."""
+        theta = Theta(epsilon=0.0)
+        rng = np.random.default_rng(111)
+        
+        for _ in range(50):
+            lms = 10.0 ** rng.uniform(-0.3, 0.3, size=3)
+            
+            norm = verify_scale_invariance_jacobian(lms, theta, method="analytic")
+            
+            # Should be near zero (machine precision)
+            assert norm < 1e-8, f"Scale invariance violated: ||J·x|| = {norm}"
+
+    def test_radial_direction_nonzero_eps_positive(self):
+        """For ε>0, J(x)·x should NOT be zero (no scale invariance)."""
+        theta = Theta(epsilon=0.01)
+        lms = np.array([1.0, 1.0, 0.5])
+        
+        norm = verify_scale_invariance_jacobian(lms, theta, method="analytic")
+        
+        # Should be nonzero when ε > 0
+        assert norm > 1e-4, f"Expected nonzero radial derivative, got {norm}"
+
+    def test_scale_invariance_all_methods_agree(self):
+        """All Jacobian methods should agree on scale invariance."""
+        theta = Theta(epsilon=0.0)
+        lms = np.array([1.0, 0.8, 0.6])
+        
+        norm_analytic = verify_scale_invariance_jacobian(lms, theta, "analytic")
+        norm_complex = verify_scale_invariance_jacobian(lms, theta, "complex_step")
+        norm_fd = verify_scale_invariance_jacobian(lms, theta, "finite_diff")
+        
+        # All should be small for ε=0
+        assert norm_analytic < 1e-8
+        assert norm_complex < 1e-8
+        # Finite-diff is less accurate but should still be small
+        assert norm_fd < 1e-5
 
 
 class TestJacobianSRGBAnalysis:

@@ -1,0 +1,58 @@
+{
+  "name": "Rec.2020",
+  "n_samples": 15625,
+  "u_norm_min": 1.582403165366815e-05,
+  "u_norm_max": 8.71802674016013,
+  "u_norm_mean": 0.8437622000449331,
+  "u_norm_median": 0.4806523265979563,
+  "u_norm_99pct": 6.404998995432866,
+  "u_norm_999pct": 8.136568619353064,
+  "recommended_kappa": 1.3764582694752765,
+  "v_norm_max": 0.9999999999244974,
+  "v_norm_mean": 0.581369251444027,
+  "n_saturated": 0,
+  "n_near_saturation": 0,
+  "v_norm_max_k1": 0.9999999464637226,
+  "n_saturated_k1": 0,
+  "n_negative_lms_before_clip": 0,
+  "pct_negative_lms": 0.0,
+  "rgb_to_xyz_matrix": [
+    [
+      0.636958,
+      0.1446169,
+      0.168881
+    ],
+    [
+      0.2627002,
+      0.6779981,
+      0.0593017
+    ],
+    [
+      0.0,
+      0.0280727,
+      1.0609851
+    ]
+  ],
+  "xyz_to_lms_matrix": [
+    [
+      0.38971,
+      0.68898,
+      -0.07868
+    ],
+    [
+      -0.22981,
+      1.1834,
+      0.04641
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "whitepoint": "D65",
+  "lms_matrix_name": "Hunt-Pointer-Estevez",
+  "transfer_function": "sRGB-like (gamma 2.4)",
+  "theta_gamma": 0.9588514417820797,
+  "theta_beta": 0.5473643059173728
+}

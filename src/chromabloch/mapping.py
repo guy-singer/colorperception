@@ -137,13 +137,20 @@ def _validate_lms_strict(lms: np.ndarray, theta: Theta) -> None:
             f"Strict domain requires LMS > 0, but {n_nonpositive} values are ≤ 0. "
             f"Use strict_domain=False for image processing with zeros."
         )
-    if theta.epsilon == 0:
-        Y = theta.w_L * lms[..., 0] + theta.w_M * lms[..., 1]
-        if np.any(Y <= 0):
-            raise DomainViolation(
-                f"With ε=0, luminance Y must be positive, but {np.sum(Y <= 0)} "
-                f"values have Y ≤ 0."
-            )
+    _validate_luminance(lms, theta)
+
+
+def _validate_luminance(lms: np.ndarray, theta: Theta) -> None:
+    """Validate that Y + ε > 0 to avoid division by zero."""
+    Y = theta.w_L * lms[..., 0] + theta.w_M * lms[..., 1]
+    denom = Y + theta.epsilon
+    if np.any(denom <= 0):
+        n_bad = np.sum(denom <= 0)
+        raise DomainViolation(
+            f"Division by zero: Y + ε ≤ 0 for {n_bad} samples. "
+            f"With ε={theta.epsilon}, this requires Y > {-theta.epsilon}. "
+            f"Use ε > 0 for inputs with zero luminance (black pixels)."
+        )
 
 
 def phi_theta(
@@ -188,6 +195,8 @@ def phi_theta(
                 stacklevel=2,
             )
             lms = np.maximum(lms, 0.0)
+        # Even in image mode, must validate Y + ε > 0
+        _validate_luminance(lms, theta)
     
     Y, O1, O2 = opponent_transform(lms, theta)
     u = chromaticity_projection(Y, O1, O2, theta)
@@ -228,9 +237,11 @@ def phi_theta_with_diagnostics(
     n_zero_lms = int(np.sum(lms_flat == 0))
     
     if strict_domain:
-        _validate_lms_strict(lms, theta)
+        _validate_lms_strict(lms_flat.reshape(original_shape), theta)
     else:
         lms_flat = np.maximum(lms_flat, 0.0)
+        # Even in image mode, must validate Y + ε > 0
+        _validate_luminance(lms_flat, theta)
     
     # Forward pass
     Y, O1, O2 = opponent_transform(lms_flat, theta)

@@ -284,9 +284,126 @@ def jacobian_condition_number(
     return s_max / s_min
 
 
+def jacobian_phi_complex_step(
+    lms: np.ndarray,
+    theta: Theta,
+    h: float = 1e-30,
+) -> np.ndarray:
+    """Compute Jacobian using complex-step differentiation.
+    
+    Complex-step derivative: f'(x) ≈ Im(f(x + ih)) / h
+    
+    This achieves near-machine-precision accuracy for analytic functions
+    without subtraction cancellation. Use for validating the analytic Jacobian.
+    
+    Note: Only works for strictly positive LMS (no clamping/abs operations).
+    
+    Parameters
+    ----------
+    lms : array-like
+        LMS cone responses, shape (3,) for single point.
+    theta : Theta
+        Parameter set. Must have epsilon > 0 or lms strictly positive.
+    h : float
+        Step size (default 1e-30, can be much smaller than finite-diff).
+        
+    Returns
+    -------
+    J : ndarray
+        Jacobian matrix, shape (2, 3).
+    """
+    lms = np.asarray(lms, dtype=float)
+    if lms.ndim != 1 or lms.shape[0] != 3:
+        raise ValueError("Complex-step Jacobian only supports single point (shape (3,))")
+    
+    J = np.zeros((2, 3), dtype=float)
+    
+    for j in range(3):
+        # Create complex perturbation
+        lms_c = lms.astype(complex)
+        lms_c[j] += 1j * h
+        
+        # Compute v using complex arithmetic
+        # Opponent transform
+        L, M, S = lms_c
+        Y = theta.w_L * L + theta.w_M * M
+        O1 = L - theta.gamma * M
+        O2 = S - theta.beta * (L + M)
+        
+        # Chromaticity
+        denom = Y + theta.epsilon
+        u1 = O1 / denom
+        u2 = O2 / denom
+        
+        # Compression (complex-valued)
+        u_norm_sq = u1**2 + u2**2
+        u_norm = np.sqrt(u_norm_sq)
+        kappa_r = theta.kappa * u_norm
+        
+        # Complex tanh
+        tanh_kr = np.tanh(kappa_r)
+        
+        # Scale factor
+        if np.abs(u_norm) < 1e-10:
+            scale = theta.kappa
+        else:
+            scale = tanh_kr / u_norm
+        
+        v1 = scale * u1
+        v2 = scale * u2
+        
+        # Extract imaginary parts
+        J[0, j] = v1.imag / h
+        J[1, j] = v2.imag / h
+    
+    return J
+
+
+def verify_scale_invariance_jacobian(
+    lms: np.ndarray,
+    theta: Theta,
+    method: str = "analytic",
+) -> float:
+    """Verify that the Jacobian satisfies scale invariance at ε=0.
+    
+    For ε=0, Φ_θ(t·x) = Φ_θ(x) for all t > 0.
+    Differentiating: J(x) · x = 0 (the radial direction is in the null space).
+    
+    Parameters
+    ----------
+    lms : array-like
+        LMS cone responses, shape (3,).
+    theta : Theta
+        Parameter set. Should have epsilon=0 for exact invariance.
+    method : str
+        'analytic', 'finite_diff', or 'complex_step'.
+        
+    Returns
+    -------
+    norm : float
+        ||J(x) · x||, should be near 0 for ε=0.
+    """
+    lms = np.asarray(lms, dtype=float).flatten()
+    
+    if method == "analytic":
+        J = jacobian_phi_analytic(lms, theta)
+    elif method == "complex_step":
+        J = jacobian_phi_complex_step(lms, theta)
+    else:
+        J = jacobian_phi_finite_diff(lms, theta)
+    
+    # J is 2×3, lms is 3×1
+    # J @ lms should be near zero for scale-invariant map
+    radial_derivative = J @ lms
+    
+    return float(np.linalg.norm(radial_derivative))
+
+
 __all__ = [
     "jacobian_phi_finite_diff",
     "jacobian_phi_analytic",
+    "jacobian_phi_complex_step",
     "jacobian_norm",
     "jacobian_condition_number",
+    "verify_scale_invariance_jacobian",
 ]
