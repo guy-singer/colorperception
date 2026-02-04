@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chromabloch"
+version = "0.1.0"
+description = "LMS to chromatic Bloch disk mapping, reconstruction, and geometry utilities"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Codex Agent" }]
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "matplotlib>=3.7",
+  "pytest>=7.4",
+  "pydantic>=2.6",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.2", "black>=24.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
