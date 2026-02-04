@@ -30,7 +30,10 @@ from chromabloch.compression import (
 from chromabloch.mapping import (
     chromaticity_projection,
     phi_theta,
+    phi_theta_with_diagnostics,
     phi_theta_components,
+    MappingDiagnostics,
+    DomainViolation,
 )
 from chromabloch.density import (
     rho_of_v,
@@ -56,7 +59,18 @@ from chromabloch.geometry import (
     klein_gyroadd,
     gamma_factor,
 )
-from chromabloch.mathutils import g_boundary, in_attainable_region_u
+from chromabloch.mathutils import (
+    g_boundary, 
+    in_attainable_region_u,
+    sample_attainable_region,
+    reconstruct_from_attainable,
+)
+from chromabloch.jacobian import (
+    jacobian_phi_finite_diff,
+    jacobian_phi_analytic,
+    jacobian_norm,
+    jacobian_condition_number,
+)
 
 __version__ = "0.1.0"
 
@@ -78,7 +92,10 @@ __all__ = [
     # mapping
     "chromaticity_projection",
     "phi_theta",
+    "phi_theta_with_diagnostics",
     "phi_theta_components",
+    "MappingDiagnostics",
+    "DomainViolation",
     # density
     "rho_of_v",
     "bloch_from_rho",
@@ -103,4 +120,11 @@ __all__ = [
     # mathutils
     "g_boundary",
     "in_attainable_region_u",
+    "sample_attainable_region",
+    "reconstruct_from_attainable",
+    # jacobian
+    "jacobian_phi_finite_diff",
+    "jacobian_phi_analytic",
+    "jacobian_norm",
+    "jacobian_condition_number",
 ]

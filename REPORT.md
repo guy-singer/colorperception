@@ -228,7 +228,69 @@ Previous runs are never overwritten.
 
 ---
 
-## 5. Known Limitations
+## 5. Numerical Contracts
+
+This section explicitly separates mathematical guarantees from numerical behavior.
+
+### Contract A: Mathematical Guarantees
+
+**Map Φ_θ:**
+- T_κ: ℝ² → D is a diffeomorphism (bijective, smooth inverse)
+- For all u ∈ ℝ², ||T_κ(u)|| < 1 (strict inequality)
+- T_κ⁻¹ exists and is smooth on D
+
+**Reconstruction:**
+- Φ̃_θ⁻¹(v; Y) is well-defined for v ∈ D and Y > 0
+- Φ̃_θ⁻¹(Φ_θ(x); Y(x)) = x exactly (right-inverse identity)
+
+**Domain:**
+- Theory assumes LMS ∈ ℝ³₊₊ (strictly positive)
+- Achromatic locus: O₁ = O₂ = 0 ↔ v = (0, 0)
+
+### Contract B: Float64 Numerical Behavior
+
+**Compression:**
+- tanh(x) = 1.0 (indistinguishable in float64) when x > ~18.4
+- Warning threshold: κ||u|| > 15
+- Saturation threshold: κ||u|| > 18
+
+**Reconstruction reliability:**
+- Roundtrip T_κ⁻¹(T_κ(u)) ≈ u holds when κ||u|| < 15 (conservative)
+- Beyond threshold: arctanh(tanh(κ||u||)) ≠ κ||u||, reconstruction unreliable
+
+**Boundary clamping:**
+- Implementation clamps ||v|| to 1 - 10⁻¹² if tanh produces exactly 1.0
+- Reported ||v|| = 1.0000 may actually be 0.999999999999
+
+### Contract C: Domain Extension for Images
+
+**Strict mode (strict_domain=True):**
+- Raises DomainViolation if any LMS ≤ 0
+- Raises if ε = 0 and Y ≤ 0
+- Use for mathematical validation
+
+**Image mode (strict_domain=False, default):**
+- Clips negative LMS to 0 with warning
+- Safe when ε > 0 (division by Y + ε never zero)
+- Black pixels (0, 0, 0) map to origin with calibrated θ
+- Use for real image processing
+
+### Contract D: API Invariants
+
+```python
+# Safe usage pattern:
+v, diag = phi_theta_with_diagnostics(lms, theta)
+if diag.is_safe():
+    lms_reconstructed = reconstruct_lms(v, Y, theta)
+    # Guaranteed: ||lms_reconstructed - lms|| < 1e-8
+else:
+    # Check diag.n_saturated, diag.n_negative_clipped
+    # Reconstruction may be unreliable
+```
+
+---
+
+## 6. Known Limitations
 
 ### 5.1 LMS Conversion is External
 
