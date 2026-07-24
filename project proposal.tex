@@ -1,0 +1,317 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+% -----------------------------
+% Theorem environments
+% -----------------------------
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+% -----------------------------
+% Macros
+% -----------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Rp}{\R_{+}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\inner}[2]{\left\langle #1,#2\right\rangle}
+
+\title{\vspace{-1.0em}
+\textbf{Project Proposal: A Candidate, Computable LMS$\to$Bloch-Disk Embedding as a Bridge to Geometric--Quantum Models of Color}\\
+\vspace{0.25em}
+\small \textit{Course: Mathematical Methods for Image Processing}}
+
+\author{
+Guy Singer - 206222093}
+
+
+\date{\underline{\hspace{4.2cm}}}
+
+\begin{document}
+\maketitle
+
+\vspace{-0.5em}
+\begin{abstract}
+Recent work in mathematical neuroscience develops intrinsic geometric models of perceived color space:
+(i) an axiomatic/homogeneous-cone program revisiting Resnikoff's classification and its metric consequences, and
+(ii) a Jordan-algebra (``rebit'') reformulation in which chromatic states form a 2D Bloch disk identified with Klein/Hilbert hyperbolic geometry.
+While mathematically elegant, these theories are largely intrinsic and do not specify a concrete computational map from physical/device representations (RGB, spectral stimuli, or LMS cone responses) to the abstract state/effect objects.
+Moreover, key assumptions about background transformations and metric invariance are explicitly identified as open or empirically problematic.
+
+This proposal is therefore scoped in two stages.
+\textbf{Part I (course scope, 2 weeks)} does \emph{not} attempt to identify the ``true'' perceptual embedding.
+Instead, it produces a \emph{candidate, computable} embedding pipeline
+\[
+\text{sRGB} \to \text{linear RGB} \to \text{XYZ} \to (L,M,S) \to (v_1,v_2)\in D \to \rho(v_1,v_2),
+\]
+motivated by opponent processing and constrained so that outputs lie in the rebit Bloch disk.
+We then analyze basic mathematical properties, implement hyperbolic/Hilbert distances on the disk, and demonstrate one image-processing application (e.g.\ geodesic chromatic interpolation).
+\textbf{Part II (after the course completion)} outlines a research program aimed at publishable novelty: calibrating and validating the embedding and induced distances on discrimination data; estimating observer-specific convex domains in Hilbert/Finsler geometry (linked to MacAdam ellipses); and extending the framework to context effects (background dependence) via structured state transformations (e.g.\ open-system channels), motivated by known failures of background-invariant Riemannian metrics.
+\end{abstract}
+
+\section{Background and Motivation}
+
+\subsection{Axiomatic geometry of perceived color}
+Under standard colorimetric conditions, the space $P$ of perceived colors can be modeled as a regular convex cone embedded in a real vector space of dimension at most $3$ (Schr\"odinger/Grassmann/von Helmholtz axioms).
+Adding Resnikoff's homogeneity axiom leads to a strong classification: $P$ must be diffeomorphic to either a ``flat'' cone $P_1 \cong \Rp^3$ or a ``hyperbolic'' model $P_2 \cong \Rp \times \mathrm{SL}(2,\R)/\mathrm{SO}(2)$.
+Crucially for this proposal, the background-transformation hypothesis requires linearity properties that remain experimentally unverified, and the background-invariance assumption used to single out Riemannian metrics is contradicted by context phenomena (e.g.\ crispening), motivating further work on perceptual metrics and contextual dependence \cite{Provenzi2020}.
+
+\subsection{Jordan algebras and the rebit / Bloch disk}
+A complementary approach replaces the external homogeneity postulate with a structural axiom:
+the Grassmann--von Helmholtz cone is the positive cone of a formally real Jordan algebra of dimension $3$.
+The classification yields either $\R\oplus\R\oplus\R$ (flat case) or $H(2,\R)$ (real symmetric $2\times2$ matrices), corresponding to the hyperbolic case.
+In the $H(2,\R)$ case, the chromatic state space is a 2D Bloch disk, isometric to a Klein disk; the induced metric coincides with the Hilbert metric on the disk, whose geodesics are Euclidean chords \cite{Berthier2020}.
+This provides a natural intrinsic description of opponency using two Pauli-like generators.
+
+\subsection{The specific gap this project targets}
+Both approaches are largely intrinsic:
+they define spaces, symmetries, and metrics internally, but do not provide a concrete computational mapping from cone excitations or device RGB to the rebit coordinates $(v_1,v_2)$ (nor claim identifiability of such a map from the axioms alone).
+Indeed, the rebit construction is explicitly presented without reference to physical colors or to an observer \cite{Berthier2020}.
+This missing bridge motivates the present proposal.
+
+\section{Problem Statement and Explicit Scope}
+
+\subsection{Problem statement}
+We aim to build a mathematically controlled and computationally implementable \emph{candidate} map from LMS cone responses (and thus from RGB images via standard conversions) into the rebit Bloch disk coordinates, enabling:
+(i) reproducible computations in the geometry proposed by the papers,
+and (ii) preliminary algorithmic demonstrations in image processing.
+
+\subsection{Scope and non-goals (important)}
+\paragraph{Part I \emph{does not} claim to:}
+\begin{itemize}[leftmargin=2.2em]
+\item identify the unique or ``true'' human perceptual embedding LMS$\to$Bloch disk;
+\item establish empirical validity across observers, viewing conditions, or strong context effects;
+\item resolve the unverified linearity of background transformations or crispening-compatible metrics.
+\end{itemize}
+
+\paragraph{Part I \emph{does} aim to:}
+\begin{itemize}[leftmargin=2.2em]
+\item propose a small, explicit family of candidate LMS$\to$disk embeddings motivated by opponent processing;
+\item prove/verify basic mathematical properties (disk-boundedness, achromatic mapping, symmetries);
+\item implement the geometry (Klein/Hilbert distance) and demonstrate one image-processing use-case.
+\end{itemize}
+
+This scoping distinction aligns with the notion that identifying/validating the true mapping is thesis-level work, whereas constructing and analyzing a candidate computable bridge is feasible as a course final project.
+
+\section{Part I: Two-Week Course Project}
+
+\subsection{Inputs, outputs, and assumptions}
+\paragraph{Inputs.}
+Color images in sRGB (or other known device space), converted to linear RGB and then to XYZ and LMS under a fixed, specified conversion pipeline.
+
+\paragraph{Assumptions.}
+We fix a viewing condition and a reference white point (or apply a simple chromatic adaptation step before embedding).
+We treat chromaticity and intensity separately to avoid conflating brightness/lightness with chromatic state in the first implementation.
+
+\paragraph{Outputs.}
+For each pixel (or sampled color) we compute:
+\begin{itemize}[leftmargin=2.2em]
+\item LMS cone responses $x=(L,M,S)\in\Rp^3$,
+\item Bloch-disk coordinates $v(x)=(v_1(x),v_2(x))$ with $\norm{v(x)}<1$,
+\item associated rebit state density matrix $\rho(v_1,v_2)$ as in \cite{Berthier2020}.
+\end{itemize}
+
+\subsection{Candidate LMS$\to$Bloch-disk embedding}
+
+\subsubsection{Opponent coordinates}
+Let $x=(L,M,S)\in\Rp^3$.
+Define a luminance proxy
+\begin{equation}
+Y(x) := w_L L + w_M M,\qquad w_L,w_M>0,
+\end{equation}
+and two opponent signals
+\begin{equation}
+O_1(x) := L - \gamma M,\qquad
+O_2(x) := S - \beta(L+M),
+\end{equation}
+with parameters $\gamma,\beta>0$.
+These represent a standard ``two-opponent + luminance'' decomposition consistent with classical pre-cortical opponency discussions and the rebit's two Pauli-like generators \cite{Berthier2020}.
+
+\subsubsection{Luminance-normalized chromatic coordinates}
+Normalize by luminance to remove global intensity scaling:
+\begin{equation}\label{eq:u}
+u(x) := (u_1(x),u_2(x))
+= \left(
+\frac{O_1(x)}{Y(x)+\varepsilon},\;
+\frac{O_2(x)}{Y(x)+\varepsilon}
+\right),
+\qquad \varepsilon>0.
+\end{equation}
+
+\subsubsection{Disk-bounded squashing (guaranteeing $\norm{v}<1$)}
+Define a smooth radial squashing map $T:\R^2\to D$ where $D=\{v\in\R^2:\norm{v}<1\}$:
+\begin{equation}\label{eq:squash}
+v(x) := T(u(x)) :=
+\begin{cases}
+(0,0), & u(x)=(0,0),\\[0.35em]
+\tanh(\kappa\norm{u(x)})\dfrac{u(x)}{\norm{u(x)}}, & \text{otherwise},
+\end{cases}
+\qquad \kappa>0.
+\end{equation}
+The parameter $\kappa$ controls how quickly colors saturate toward the boundary.
+
+\subsubsection{Rebit state (Bloch disk)}
+Let $\sigma_1,\sigma_2$ be the Pauli-like matrices (real symmetric) used for rebits in \cite{Berthier2020}:
+\begin{equation}
+\sigma_1=\begin{pmatrix}1&0\\0&-1\end{pmatrix},\qquad
+\sigma_2=\begin{pmatrix}0&1\\1&0\end{pmatrix}.
+\end{equation}
+Define the state density matrix:
+\begin{equation}\label{eq:rho}
+\rho(x):=\rho(v_1(x),v_2(x))
+=\frac12\left(I_2+v_1(x)\sigma_1+v_2(x)\sigma_2\right),
+\end{equation}
+which is well-defined and positive semidefinite whenever $\norm{v(x)}\le 1$.
+
+\subsubsection{Basic properties to prove/check}
+\begin{proposition}[Disk-boundedness]
+For all $x\in\Rp^3$, the map \eqref{eq:squash} satisfies $\norm{v(x)}<1$. Hence $\rho(x)$ in \eqref{eq:rho} is a valid rebit state density matrix.
+\end{proposition}
+
+\begin{proposition}[Achromatic mapping]
+If $O_1(x)=0$ and $O_2(x)=0$ (chromatic equilibrium in both opponencies), then $u(x)=(0,0)$ and therefore $v(x)=(0,0)$ and $\rho(x)=I_2/2$, the maximal-entropy state in \cite{Berthier2020}.
+\end{proposition}
+
+\begin{remark}[Status of the construction]
+The mapping above is intentionally presented as a \emph{candidate family} with parameters $(w_L,w_M,\gamma,\beta,\kappa)$.
+Part I does not claim identifiability or perceptual optimality; it provides an explicit bridge to enable computation in the intrinsic geometry and to set up Part II calibration/validation.
+\end{remark}
+
+\subsection{Geometry on the disk and computational implementation}
+
+\subsubsection{Hilbert/Klein distance on the unit disk}
+Berthier emphasizes that the Klein disk geometry is well adapted to the rebit state space and that the Klein metric coincides with Hilbert's metric on the disk \cite{Berthier2020}.
+We will implement the Hilbert distance $d_H$ between two points $p,q\in D$:
+let the Euclidean line through $p,q$ intersect the unit circle at boundary points $r,s$ in the order $r,p,q,s$.
+Then
+\begin{equation}
+d_H(p,q)=\frac12\log[r,p,q,s],\qquad
+[r,p,q,s]=\frac{\norm{q-r}}{\norm{p-r}}\cdot\frac{\norm{p-s}}{\norm{q-s}}.
+\end{equation}
+This gives a closed-form computable distance on the disk (with robust numerical handling for near-boundary cases).
+
+\subsubsection{One image-processing demonstration}
+We will implement at least one of the following demonstrations:
+
+\paragraph{Demo A: Hyperbolic/geodesic chromatic interpolation.}
+Given two colors $x_0,x_1$ in an image, embed to $v_0,v_1\in D$ and interpolate along a Klein geodesic (Euclidean chord), then map back through an inverse display pipeline (with gamut handling).
+Compare against linear interpolation in RGB and in a baseline opponent space.
+
+\paragraph{Demo B: Adaptation-then-embedding.}
+Apply a simple von Kries diagonal adaptation in LMS prior to embedding, and show the resulting shift of the embedded chromatic distribution of an image under different assumed illuminants.
+This connects computationally to the role of illuminant/background changes emphasized in the homogeneous-cone framework \cite{Provenzi2020}.
+
+\subsection{Deliverables}
+\begin{itemize}[leftmargin=2.2em]
+\item \textbf{Report (8--12 pages)} with clear assumptions and non-claims, derivation of the embedding family, and computational results.
+\item \textbf{Reproducible code} (Python/Jupyter) implementing: RGB$\to$XYZ$\to$LMS, embedding \eqref{eq:u}--\eqref{eq:rho}, Hilbert distance, and one demo.
+\item \textbf{Figures} showing: disk embeddings of color ramps and image samples, opponent-axis behavior, and example outputs of the demo.
+\end{itemize}
+
+\section{Part II: Post-Course Research Extension (Toward Publication)}
+
+\subsection{Motivation for extension}
+Part I produces a candidate computational bridge but does not claim perceptual correctness.
+Part II targets scientific novelty by turning the candidate into an empirically constrained and observer-/context-aware model, aligned with open problems emphasized by the papers:
+(i) unverified linearity and problematic background-invariant metrics \cite{Provenzi2020},
+(ii) the intrinsic nature of the rebit model and the suggestion to relate Hilbert/Finsler geometry to MacAdam ellipses \cite{Berthier2020},
+and (iii) context effects potentially requiring open-system (channel) descriptions \cite{Berthier2020}.
+
+\subsection{Research questions}
+\begin{enumerate}[label=\textbf{RQ\arabic*.}, leftmargin=2.2em]
+\item \textbf{Calibration:} Can parameters of the candidate embedding family be fit so that disk-geometry distances predict discrimination data better than baselines?
+\item \textbf{Observer geometry:} Can an observer be modeled by a convex subset $\Omega\subset D$ such that the induced Hilbert/Finsler metric locally matches measured MacAdam ellipses, as suggested in \cite{Berthier2020}?
+\item \textbf{Context dependence:} Can we model background/context changes by structured transformations on states that are \emph{not} globally isometric (consistent with crispening), while retaining mathematical control?
+\end{enumerate}
+
+\subsection{Work packages}
+
+\paragraph{WP-A: Data-driven calibration of the embedding.}
+Introduce parameters $\theta=(w_L,w_M,\gamma,\beta,\kappa,\dots)$ and fit them on discrimination datasets (e.g.\ MacAdam ellipses or modern color-difference datasets under controlled conditions).
+Compare predictive performance of:
+\begin{itemize}[leftmargin=2.2em]
+\item Euclidean baselines (Lab, opponent spaces),
+\item Klein/Hilbert distances on the embedded disk,
+\item variants incorporating nonlinear compression (e.g.\ log-like response) prior to \eqref{eq:u}.
+\end{itemize}
+
+\paragraph{WP-B: Estimating an observer-specific convex domain $\Omega$ (Hilbert/Finsler).}
+Berthier proposes identifying for each observer a convex subset $\Omega$ by comparing Finsler metric balls to MacAdam ellipses \cite{Berthier2020}.
+We formalize this as an inverse problem:
+parameterize $\partial\Omega$ (support function, spline, or convex polygon) and optimize $\Omega$ so that the local unit balls of the Hilbert/Finsler norm match measured ellipses (up to scale).
+This yields a principled, observer-specific geometry.
+
+\paragraph{WP-C: Context effects via structured state maps (open-system/channel model).}
+Provenzi shows background-invariant Riemannian metrics conflict with crispening and highlights the need for further research on perceptual metrics in context \cite{Provenzi2020}.
+Berthier notes that context effects may be modeled by open quantum systems via linear, trace-preserving, completely positive maps \cite{Berthier2020}.
+We propose a family of context-indexed maps $\mathcal{E}_b$ acting on states:
+\[
+\rho \mapsto \mathcal{E}_b(\rho),
+\]
+and define a context-dependent distance
+\[
+d_b(x,y):=d\!\left(\mathcal{E}_b(\rho(x)),\mathcal{E}_b(\rho(y))\right),
+\]
+with the goal of reproducing crispening-like modulations while preserving tractable geometry.
+
+\paragraph{WP-D (optional): Empirical test of additivity/linearity for background transformations.}
+If feasible, implement (or simulate) the psycho-physical protocol proposed in \cite{Provenzi2020} to test additivity of background transformations.
+This provides direct evidence about a core open hypothesis in the homogeneous-cone approach.
+
+\subsection{Expected novelty and publication plan}
+The publishable contribution is not merely ``a mapping,'' but:
+\begin{enumerate}[leftmargin=2.2em]
+\item a calibrated and validated embedding with quantitative predictive evaluation;
+\item an algorithm to infer observer-specific convex domains $\Omega$ with Hilbert/Finsler geometry linked to discrimination ellipses;
+\item a mathematically controlled context-dependent extension using structured state maps, directly motivated by the failures of background-invariant metrics.
+\end{enumerate}
+Potential venues include Journal of Mathematical Neuroscience, SIAM Journal on Imaging Sciences, and interdisciplinary vision-science venues depending on the empirical component.
+
+\section{Risks and Mitigations}
+\begin{itemize}[leftmargin=2.2em]
+\item \textbf{Underdetermined mapping:} Part I embraces non-uniqueness; Part II addresses it via calibration (WP-A) and cross-validation.
+\item \textbf{Dataset mismatch / viewing conditions:} Explicitly fix assumptions; use datasets with documented viewing geometry; report sensitivity analyses.
+\item \textbf{Context complexity:} Start with controlled backgrounds; treat open-system/channel models as incremental extensions (WP-C).
+\item \textbf{Human-subject constraints:} Keep Part I non-human-subject; only pursue WP-D with appropriate approvals if needed.
+\end{itemize}
+
+\section*{Approval Request}
+I request approval to pursue:
+\begin{enumerate}[leftmargin=2.2em]
+\item \textbf{Part I (2-week final project):} construct and implement a candidate, computable LMS$\to$Bloch-disk embedding family; implement Hilbert/Klein distance on the disk; and demonstrate one image-processing application.
+\item \textbf{Part II (post-course):} develop a publishable extension by calibrating/validating the embedding, fitting observer-specific convex domains via Hilbert/Finsler geometry, and extending to context effects via structured state maps.
+\end{enumerate}
+
+\vspace{0.5em}
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{Provenzi2020}
+E.~Provenzi.
+\newblock \emph{Geometry of color perception. Part 1: structures and metrics of a homogeneous color space}.
+\newblock Journal of Mathematical Neuroscience, 10:7, 2020.
+\newblock DOI: 10.1186/s13408-020-00084-x.
+
+\bibitem{Berthier2020}
+M.~Berthier.
+\newblock \emph{Geometry of color perception. Part 2: perceived colors from real quantum states and Hering's rebit}.
+\newblock Journal of Mathematical Neuroscience, 10:14, 2020.
+\newblock DOI: 10.1186/s13408-020-00092-x.
+
+\end{thebibliography}
+
+\end{document}
+

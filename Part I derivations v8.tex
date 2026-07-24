@@ -1,0 +1,889 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{bm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+% ----------------------------- 
+% Theorem environments 
+% -----------------------------
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{construction}[theorem]{Construction}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% ----------------------------- 
+% Macros 
+% -----------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Rnn}{\mathbb{R}_{\geq 0}}  % nonnegative reals
+\newcommand{\Rpp}{\mathbb{R}_{> 0}}     % positive reals
+\newcommand{\D}{\mathbb{D}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\inner}[2]{\langle #1, #2 \rangle}
+\newcommand{\Tr}{\mathrm{Tr}}
+\newcommand{\Det}{\mathrm{det}}
+\newcommand{\Id}{\mathrm{Id}}
+\newcommand{\sgn}{\mathrm{sgn}}
+\DeclareMathOperator{\arctanh}{arctanh}
+\DeclareMathOperator{\arcosh}{arcosh}
+
+\title{\textbf{A Candidate Chromaticity Map from LMS Cone Space\\ to the Chromatic Bloch Disk}\\[0.5em]
+\large Part I: Mathematical Derivation and Properties}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We construct an explicit, computable chromaticity map from the space of LMS cone responses to the chromatic state space modeled as a Bloch disk. The construction proceeds in four stages: (1) formation of opponent coordinates from LMS triplets, (2) luminance normalization to isolate chromaticity, (3) radial compression to ensure disk-boundedness, and (4) representation as a rebit density matrix. We prove that the map satisfies the required geometric constraints, derive the exact attainable chromaticity region (an open half-strip with affine boundary), and establish the Hilbert metric structure on the chromatic disk. The map is parameterized by a vector $\theta$, allowing calibration against psychophysical data in subsequent work.
+\end{abstract}
+
+\paragraph{Notation.} Throughout, we use:
+\begin{itemize}
+    \item $\Rpp := (0, \infty)$ for strictly positive reals and $\Rnn := [0, \infty)$ for nonnegative reals.
+    \item $\norm{v} := \sqrt{v_1^2 + v_2^2}$ for the Euclidean norm on $\R^2$.
+    \item $\inner{u}{v} := u_1 v_1 + u_2 v_2$ for the Euclidean inner product on $\R^2$.
+    \item $B(u, \delta) := \{v \in \R^2 : \norm{v - u} < \delta\}$ for the open ball of radius $\delta$ centered at $u$.
+    \item $\partial \D := \{v \in \R^2 : \norm{v} = 1\}$ for the boundary of the disk $\D$.
+    \item $X \succeq 0$ means the matrix $X$ is \textbf{positive semidefinite} (all eigenvalues $\geq 0$).
+    \item For vectors $u, v \in \R^2$, we write $u \parallel v$ to mean $u$ and $v$ are \textbf{parallel} (i.e., $u = \lambda v$ for some $\lambda \in \R$).
+\end{itemize}
+
+\tableofcontents
+\newpage
+
+%=============================================================================
+\section{The Target Space: Rebit State Space}
+\label{sec:target}
+%=============================================================================
+
+We begin by establishing the mathematical structure of the target space. A \textbf{rebit} (``real qubit'') is a two-level quantum system described by real (rather than complex) amplitudes. Its state space is the set of $2 \times 2$ real symmetric positive semidefinite matrices with unit trace, which we parameterize by the \textbf{Bloch disk} $\D$.
+
+\subsection{The Jordan Algebra $H(2,\R)$}
+
+\begin{definition}[Jordan Algebra of $2\times 2$ Real Symmetric Matrices]
+Let $H(2,\R)$ denote the set of $2 \times 2$ real symmetric matrices:
+\begin{equation}
+H(2,\R) = \left\{ X \in \R^{2\times 2} : X^T = X \right\}.
+\end{equation}
+This is a 3-dimensional real vector space with the Jordan product $A \circ B = \frac{1}{2}(AB + BA)$.
+\end{definition}
+
+\begin{proposition}[Basis Decomposition]
+Every element $X \in H(2,\R)$ admits a unique decomposition
+\begin{equation}
+X = \alpha \Id_2 + m_1 \sigma_1 + m_2 \sigma_2
+\end{equation}
+where $\alpha \in \R$, $(m_1, m_2) \in \R^2$ are the \textbf{Minkowski coordinates}, and the basis matrices are
+\begin{equation}
+\Id_2 = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}, \quad
+\sigma_1 = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}, \quad
+\sigma_2 = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}.
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Writing $X = \begin{pmatrix} a & b \\ b & c \end{pmatrix}$, we have $\alpha = \frac{a+c}{2}$, $m_1 = \frac{a-c}{2}$, $m_2 = b$. Uniqueness follows from linear independence of $\{\Id_2, \sigma_1, \sigma_2\}$.
+\end{proof}
+
+\begin{definition}[Isomorphism to Minkowski Space]
+Define the map $\chi: H(2,\R) \to \R \oplus \R^2$ by
+\begin{equation}
+\chi\left( \begin{pmatrix} \alpha + m_1 & m_2 \\ m_2 & \alpha - m_1 \end{pmatrix} \right) = (\alpha, m_1, m_2).
+\end{equation}
+This is a linear isomorphism preserving the quadratic form: $\Det(X) = \alpha^2 - \norm{m}^2$.
+\end{definition}
+
+\subsection{The Positive Cone and State Space}
+
+\begin{definition}[Positive Cone]
+The positive cone $H_+(2,\R) \subset H(2,\R)$ consists of positive semidefinite matrices:
+\begin{equation}
+H_+(2,\R) = \{ X \in H(2,\R) : X \succeq 0 \} = \{ X : \Tr(X) \geq 0, \Det(X) \geq 0 \}.
+\end{equation}
+\end{definition}
+
+\begin{remark}[Positive Semidefiniteness for $2 \times 2$ Symmetric Matrices]
+For $X \in H(2,\R)$, the equivalence $X \succeq 0 \Leftrightarrow (\Tr(X) \geq 0 \text{ and } \Det(X) \geq 0)$ uses symmetry: eigenvalues are real, and both are nonnegative iff their sum (trace) and product (determinant) are nonnegative.
+\end{remark}
+
+\begin{definition}[Chromatic State Space (Bloch Disk)]
+\label{def:bloch-disk}
+The \textbf{chromatic state space} is the open unit disk
+\begin{equation}
+\D = \{ v \in \R^2 : \norm{v} < 1 \}.
+\end{equation}
+We also denote the closed disk by $\bar{\D} = \{ v \in \R^2 : \norm{v} \leq 1 \}$.
+\end{definition}
+
+\begin{definition}[Density Matrix Representation]
+\label{def:density-matrix}
+For $v = (v_1, v_2) \in \bar{\D}$, the corresponding \textbf{density matrix} is
+\begin{equation}
+\boxed{
+\rho(v) = \frac{1}{2}\left( \Id_2 + v_1 \sigma_1 + v_2 \sigma_2 \right) = \frac{1}{2} \begin{pmatrix} 1 + v_1 & v_2 \\ v_2 & 1 - v_1 \end{pmatrix}
+}
+\end{equation}
+\end{definition}
+
+\begin{remark}[Relation to Minkowski Coordinates]
+Under $\chi$, we have $\chi(\rho(v)) = (\frac{1}{2}, \frac{v_1}{2}, \frac{v_2}{2})$. That is, the Minkowski coordinate vector is $m = v/2$, so the Bloch vector $v$ differs from the Minkowski coordinates by a factor of 2.
+\end{remark}
+
+\begin{proposition}[Density Matrix Properties]
+\label{prop:density-props}
+For $v \in \bar{\D}$, the matrix $\rho(v)$ satisfies:
+\begin{enumerate}[label=(\roman*)]
+    \item $\rho(v) \succeq 0$ (positive semidefinite, i.e., all eigenvalues $\geq 0$)
+    \item $\Tr(\rho(v)) = 1$ (unit trace)
+    \item $\rho(v)^2 = \rho(v)$ if and only if $\norm{v} = 1$ (\textbf{pure state} condition)
+    \item The eigenvalues are $\lambda_{\pm} = \frac{1}{2}(1 \pm \norm{v})$
+\end{enumerate}
+A \textbf{pure state} ($\norm{v} = 1$) represents maximal chromatic information; a \textbf{mixed state} ($\norm{v} < 1$) represents partial chromatic information, with the \textbf{maximally mixed state} at $v = (0,0)$.
+
+Conversely, every $2 \times 2$ real symmetric positive semidefinite matrix with trace $1$ has a unique $v \in \bar{\D}$ such that $\rho = \rho(v)$.
+\end{proposition}
+
+\begin{proof}
+(i)--(ii): Direct computation gives $\Tr(\rho(v)) = 1$ and $\Det(\rho(v)) = \frac{1}{4}(1 - \norm{v}^2) \geq 0$ for $\norm{v} \leq 1$.
+
+(iii): Using $\sigma_i^2 = \Id_2$ for $i \in \{1, 2\}$ and $\sigma_1\sigma_2 + \sigma_2\sigma_1 = 0$:
+$\rho(v)^2 = \frac{1}{4}( (1 + \norm{v}^2)\Id_2 + 2v_1\sigma_1 + 2v_2\sigma_2 )$.
+This equals $\rho(v)$ iff $1 + \norm{v}^2 = 2$, i.e., $\norm{v} = 1$.
+
+(iv): The characteristic polynomial is $\lambda^2 - \lambda + \frac{1}{4}(1-\norm{v}^2) = 0$.
+
+Converse: Given $\rho = \begin{psmallmatrix} a & b \\ b & c \end{psmallmatrix}$ with $\rho \succeq 0$ and $a + c = 1$, define
+\begin{equation}
+v_1 := a - c = 2a - 1, \qquad v_2 := 2b.
+\end{equation}
+Then
+\begin{equation}
+\rho(v) = \frac{1}{2}\begin{pmatrix} 1 + v_1 & v_2 \\ v_2 & 1 - v_1 \end{pmatrix} = \frac{1}{2}\begin{pmatrix} 2a & 2b \\ 2b & 2c \end{pmatrix} = \begin{pmatrix} a & b \\ b & c \end{pmatrix} = \rho.
+\end{equation}
+Moreover,
+\begin{equation}
+\Det(\rho) = ac - b^2 = \frac{(1+v_1)(1-v_1)}{4} - \frac{v_2^2}{4} = \frac{1 - \norm{v}^2}{4},
+\end{equation}
+so $\rho \succeq 0$ implies $\Det(\rho) \geq 0$ and hence $\norm{v} \leq 1$. Uniqueness follows from $v_1 = a - c$ and $v_2 = 2b$.
+\end{proof}
+
+\begin{definition}[Achromatic State]
+The \textbf{achromatic state} corresponds to $v = (0,0)$:
+\begin{equation}
+\rho_0 := \rho(0,0) = \frac{1}{2}\Id_2.
+\end{equation}
+This is the maximally mixed state with eigenvalues $\lambda_+ = \lambda_- = \frac{1}{2}$.
+\end{definition}
+
+%=============================================================================
+\section{The Source Space: LMS Cone Responses}
+\label{sec:source}
+%=============================================================================
+
+\subsection{Cone Activation Model}
+
+\begin{definition}[LMS Space]
+The \textbf{LMS cone response space} is
+\begin{equation}
+\mathcal{L} = \Rpp^3 = \{ (L, M, S) \in \R^3 : L > 0, M > 0, S > 0 \}.
+\end{equation}
+Here $L$, $M$, $S$ denote the responses of the three types of retinal cone photoreceptors, named for their peak sensitivities to \textbf{L}ong (red), \textbf{M}edium (green), and \textbf{S}hort (blue) wavelengths of light. We use strict positivity to avoid degeneracies.
+\end{definition}
+
+\begin{remark}[Physical Interpretation]
+For a spectral power distribution $C(\lambda)$ over visible wavelengths, cone responses are integrals $L = \int C(\lambda) \bar{l}(\lambda) d\lambda$, etc., where $\bar{l}, \bar{m}, \bar{s}$ are cone sensitivity functions.
+\end{remark}
+
+\subsection{Conversion from RGB/XYZ}
+
+\begin{remark}[LMS Conversion is External]
+\label{rem:lms-external}
+The transformation from CIE XYZ (or RGB) to LMS uses a $3 \times 3$ matrix whose specific entries depend on the chosen cone fundamentals (e.g., Hunt-Pointer-Estevez, CAT02, or physiological cone fundamentals). \textbf{This choice is external to the present construction}: we analyze $\Phi_\theta$ assuming LMS inputs are given. Implementation-specific matrix choices and chromatic adaptation transforms will be specified in Part II.
+\end{remark}
+
+\begin{remark}[Linearization Requirement]
+\label{rem:linearization}
+Standard sRGB images are gamma-compressed. Before applying linear color transformations, one must apply gamma decoding (linearization). Failure to linearize introduces systematic errors.
+\end{remark}
+
+\begin{remark}[Numerical Positivity]
+\label{rem:positivity}
+Numerical XYZ-to-LMS matrices can produce small negative values for out-of-gamut inputs. In practice, one applies a small positive clamp to ensure $(L, M, S) \in \mathcal{L}$.
+\end{remark}
+
+%=============================================================================
+\section{Construction of the Chromaticity Map}
+\label{sec:construction}
+%=============================================================================
+
+We construct the map $\Phi_\theta: \mathcal{L} \to \D$ in four stages.
+
+\begin{remark}[Terminology: Map vs Embedding]
+\label{rem:terminology}
+We use ``chromaticity map'' rather than ``embedding'' because $\Phi_\theta$ is \textbf{not injective}: it projects out luminance information, so scaling $(L, M, S) \mapsto t(L, M, S)$ produces (nearly) the same output. For an injective map, one would need to work on a \textbf{chromaticity manifold} (e.g., the set of points with fixed luminance $Y = w_L L + w_M M = 1$) or equivalently on ratio coordinates.
+\end{remark}
+
+\subsection{Stage 1: Opponent Coordinate Formation}
+
+\begin{definition}[Opponent Transform]
+\label{def:opponent}
+Let $w_L, w_M, \gamma, \beta \in \Rpp$ be positive parameters. Define the \textbf{opponent coordinate map} $\mathcal{O}: \mathcal{L} \to \Rpp \times \R^2$ by
+\begin{equation}
+\mathcal{O}(L, M, S) = \begin{pmatrix} Y \\ O_1 \\ O_2 \end{pmatrix} = \begin{pmatrix} w_L L + w_M M \\ L - \gamma M \\ S - \beta(L + M) \end{pmatrix}.
+\end{equation}
+In matrix form:
+\begin{equation}
+\boxed{
+\mathcal{O}(L, M, S) = \underbrace{\begin{pmatrix} w_L & w_M & 0 \\ 1 & -\gamma & 0 \\ -\beta & -\beta & 1 \end{pmatrix}}_{=: A_\theta} \begin{pmatrix} L \\ M \\ S \end{pmatrix}
+}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Invertibility of Opponent Transform]
+\label{prop:invertibility}
+The matrix $A_\theta$ is invertible with $\Det(A_\theta) = -(w_L \gamma + w_M) \neq 0$ for positive parameters. We denote
+\begin{equation}
+\Delta := w_L \gamma + w_M > 0.
+\end{equation}
+\end{proposition}
+
+\begin{remark}[Sign Conventions]
+\label{rem:sign-conventions}
+In our convention, $O_1 = L - \gamma M > 0$ corresponds to L-cone dominance. Physiologically, this is sometimes labeled ``reddish'' rather than ``greenish.'' The labeling is a matter of convention; swapping $O_1 \mapsto -O_1$ exchanges the red/green poles.
+\end{remark}
+
+\subsection{Stage 2: Luminance Normalization}
+
+\begin{definition}[Chromaticity Projection]
+\label{def:chromaticity}
+Let $\varepsilon \in \Rnn$ be a regularization parameter. Define the \textbf{chromaticity projection} $\Pi: \Rpp \times \R^2 \to \R^2$ by
+\begin{equation}
+\boxed{
+\Pi(Y, O_1, O_2) = u = (u_1, u_2) := \left( \frac{O_1}{Y + \varepsilon}, \frac{O_2}{Y + \varepsilon} \right)
+}
+\end{equation}
+We write $u^{(\varepsilon)}(x) := \Pi \circ \mathcal{O}(x)$ for the chromaticity coordinates with regularization $\varepsilon$, and $u^{(0)}(x) := (O_1/Y, O_2/Y)$ for the idealized scale-invariant chromaticity. Here we treat $Y: \mathcal{L} \to \Rpp$ as the \textbf{luminance function} $Y(x) := w_L L + w_M M$ for $x = (L, M, S)$.
+\end{definition}
+
+\begin{remark}[Parameter Convention]
+The case $\varepsilon = 0$ gives exact scale invariance and is used to characterize the attainable region boundary. For numerical implementation, one chooses $\varepsilon > 0$ (e.g., $\varepsilon = 0.01$) for stability.
+\end{remark}
+
+\begin{proposition}[Scale Transformation Laws]
+\label{prop:scale-invariance}
+For $t > 0$ and $x = (L, M, S) \in \mathcal{L}$, let $Y = Y(x) = w_L L + w_M M$ denote the luminance, and let $O := (O_1, O_2) = (L - \gamma M, S - \beta(L+M))$ denote the opponent coordinate vector.
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{Relative to the scale-invariant chromaticity} $u^{(0)}(x) = O/Y$:
+    \begin{equation}
+    \boxed{
+    u^{(\varepsilon)}(tx) = \frac{tY}{tY + \varepsilon} \cdot u^{(0)}(x) = \frac{t}{t + \varepsilon/Y} \cdot u^{(0)}(x)
+    }
+    \end{equation}
+    \item \textbf{Relative to the regularized chromaticity} $u^{(\varepsilon)}(x)$:
+    \begin{equation}
+    \boxed{
+    u^{(\varepsilon)}(tx) = \frac{t(Y + \varepsilon)}{tY + \varepsilon} \cdot u^{(\varepsilon)}(x)
+    }
+    \end{equation}
+\end{enumerate}
+In particular, formula (ii) gives factor $1$ at $t = 1$. As $t \to \infty$, $u^{(\varepsilon)}(tx) \to u^{(0)}(x)$.
+\end{proposition}
+
+\begin{proof}
+For $x' = tx$: $Y' = tY$, $O' = tO$. Thus $u^{(\varepsilon)}(tx) = tO/(tY + \varepsilon)$.
+
+(i) $u^{(\varepsilon)}(tx) = \frac{tO}{tY + \varepsilon} = \frac{tY}{tY + \varepsilon} \cdot \frac{O}{Y} = \frac{tY}{tY + \varepsilon} \cdot u^{(0)}(x)$.
+
+(ii) $\frac{u^{(\varepsilon)}(tx)}{u^{(\varepsilon)}(x)} = \frac{tO/(tY + \varepsilon)}{O/(Y + \varepsilon)} = \frac{t(Y + \varepsilon)}{tY + \varepsilon}$.
+\end{proof}
+
+\subsection{Exact Attainable Chromaticity Region}
+
+The positivity constraints $L, M, S > 0$ impose a precise geometric constraint on attainable chromatic coordinates.
+
+\begin{proposition}[Bounds for $u_1^{(0)}$]
+\label{prop:u1-bounds}
+For all $(L, M, S) \in \mathcal{L}$,
+\begin{equation}
+-\frac{\gamma}{w_M} < u_1^{(0)} < \frac{1}{w_L}.
+\end{equation}
+Every value in this open interval is attained.
+\end{proposition}
+
+\begin{proof}
+Let $t := L/M > 0$ denote the L-to-M cone ratio. Then 
+\begin{equation}
+u_1^{(0)} = \frac{O_1}{Y} = \frac{t - \gamma}{w_L t + w_M}.
+\end{equation}
+Define $f: (0, \infty) \to \R$ by $f(t) := (t - \gamma)/(w_L t + w_M)$.
+Since $f'(t) = (w_L \gamma + w_M)/(w_L t + w_M)^2 > 0$, $f$ is strictly increasing with $\lim_{t \to 0^+} f(t) = -\gamma/w_M$ and $\lim_{t \to \infty} f(t) = 1/w_L$.
+\end{proof}
+
+\begin{lemma}[Bounds for $u_1^{(\varepsilon)}$]
+\label{lem:u1-eps-bounds}
+For any $\varepsilon \geq 0$ and all $(L, M, S) \in \mathcal{L}$,
+\begin{equation}
+-\frac{\gamma}{w_M} < u_1^{(\varepsilon)} < \frac{1}{w_L}.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+We have $u_1^{(\varepsilon)} = \frac{Y}{Y+\varepsilon} u_1^{(0)}$ with $\frac{Y}{Y+\varepsilon} \in (0, 1]$. If $u_1^{(0)} > 0$, then $u_1^{(\varepsilon)} \leq u_1^{(0)} < 1/w_L$. If $u_1^{(0)} < 0$, then $u_1^{(\varepsilon)} \geq u_1^{(0)} > -\gamma/w_M$. The case $u_1^{(0)} = 0$ gives $u_1^{(\varepsilon)} = 0$.
+\end{proof}
+
+\begin{proposition}[Exact Attainable Region for $\varepsilon = 0$]
+\label{prop:attainable-eps0}
+Define the idealized chromaticity $u^{(0)}(x) := (O_1/Y, O_2/Y)$. The image $u^{(0)}(\mathcal{L}) \subset \R^2$ is
+\begin{equation}
+\boxed{
+u^{(0)}(\mathcal{L}) = \left\{(u_1,u_2) \in \R^2 :\; -\frac{\gamma}{w_M} < u_1 < \frac{1}{w_L},\; u_2 > g(u_1) \right\}
+}
+\end{equation}
+where the lower boundary is the affine function
+\begin{equation}
+g(u_1) := -\frac{\beta}{\Delta}\Bigl(\gamma+1+(w_M-w_L)u_1\Bigr).
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+\textbf{(Necessity)} Let $t := L/M > 0$ and $s := S/M > 0$. Then
+$u_1 = (t - \gamma)/(w_L t + w_M)$ and $u_2 = (s - \beta(t+1))/(w_L t + w_M)$.
+Since $s > 0$, we have $u_2 > -\beta(t+1)/(w_L t + w_M)$. Inverting $f(t) = u_1$:
+\begin{equation}
+t = f^{-1}(u_1) = \frac{\gamma + w_M u_1}{1 - w_L u_1} > 0 \quad \text{for } u_1 \in \left(-\frac{\gamma}{w_M}, \frac{1}{w_L}\right).
+\end{equation}
+Substituting into the lower bound:
+\begin{equation}
+-\frac{\beta(t+1)}{w_L t + w_M} = -\frac{\beta(\gamma + 1 + (w_M - w_L)u_1)}{\Delta} = g(u_1).
+\end{equation}
+
+\textbf{(Sufficiency)} Conversely, let $(u_1, u_2)$ satisfy $-\gamma/w_M < u_1 < 1/w_L$ and $u_2 > g(u_1)$. Define
+\begin{equation}
+t := \frac{\gamma + w_M u_1}{1 - w_L u_1} > 0, \qquad D_t := w_L t + w_M = \frac{\Delta}{1 - w_L u_1} > 0.
+\end{equation}
+Then define $s := \beta(t+1) + u_2 D_t$. The condition $u_2 > g(u_1)$ is equivalent to $s > 0$. Choose any $M > 0$ and set
+\begin{equation}
+L := tM > 0, \qquad S := sM > 0.
+\end{equation}
+Direct substitution verifies $u^{(0)}(L, M, S) = (u_1, u_2)$.
+\end{proof}
+
+\begin{remark}[Openness of the Attainable Region]
+The set $u^{(0)}(\mathcal{L})$ is \textbf{open} in $\R^2$ because it is defined by strict inequalities: $-\gamma/w_M < u_1 < 1/w_L$ and $u_2 > g(u_1)$.
+\end{remark}
+
+\begin{remark}[Limiting Idealization]
+Proposition~\ref{prop:attainable-eps0} analyzes $\varepsilon = 0$, which is a \textbf{limiting idealization} characterizing the boundary geometry. The $\varepsilon > 0$ case produces the same image set (Corollary~\ref{cor:attainable-epspos}).
+\end{remark}
+
+\begin{corollary}[Attainable Region for $\varepsilon > 0$]
+\label{cor:attainable-epspos}
+For any $\varepsilon > 0$, as sets:
+\begin{equation}
+\boxed{u^{(\varepsilon)}(\mathcal{L}) = u^{(0)}(\mathcal{L})}
+\end{equation}
+The regularization $\varepsilon > 0$ does not change the attainable chromaticity region; it only changes the \textbf{parametrization by luminance}.
+\end{corollary}
+
+\begin{proof}
+We establish equality by two inclusions.
+
+\textbf{($\subseteq$):} For any $x \in \mathcal{L}$, we have
+\begin{equation}
+u^{(\varepsilon)}(x) = \frac{Y(x)}{Y(x) + \varepsilon} \cdot u^{(0)}(x) =: \lambda(x) \cdot u^{(0)}(x),
+\end{equation}
+where $\lambda(x) := Y(x)/(Y(x) + \varepsilon) \in (0, 1)$ is the luminance attenuation factor. The region $u^{(0)}(\mathcal{L})$ is \textbf{star-shaped with respect to the origin}, meaning: for every $u \in u^{(0)}(\mathcal{L})$ and every $\mu \in [0,1]$, we have $\mu u \in u^{(0)}(\mathcal{L})$. This holds because $g(0) = -\beta(\gamma+1)/\Delta < 0$, so $(0,0) \in u^{(0)}(\mathcal{L})$, and the affine boundary with negative intercept ensures radial inward scalings remain in the region. Thus $u^{(\varepsilon)}(x) \in u^{(0)}(\mathcal{L})$.
+
+\textbf{($\supseteq$):} Let $u \in u^{(0)}(\mathcal{L})$. Since $u^{(0)}(\mathcal{L})$ is open and contains $u$, there exists $\delta > 0$ such that the ball $B(u, \delta) \subset u^{(0)}(\mathcal{L})$. Choose $\alpha > 1$ close enough to $1$ so that $\norm{\alpha u - u} = (\alpha - 1)\norm{u} < \delta$; then $\alpha u \in u^{(0)}(\mathcal{L})$. By Proposition~\ref{prop:attainable-eps0} (sufficiency), there exists $x \in \mathcal{L}$ with $u^{(0)}(x) = \alpha u$. Now choose $t > 0$ so that
+\begin{equation}
+\frac{tY(x)}{tY(x) + \varepsilon} = \frac{1}{\alpha}, \quad \text{i.e.,} \quad t = \frac{\varepsilon}{Y(x)(\alpha - 1)}.
+\end{equation}
+Then $u^{(\varepsilon)}(tx) = \frac{1}{\alpha} \cdot (\alpha u) = u$, so $u \in u^{(\varepsilon)}(\mathcal{L})$.
+\end{proof}
+
+\begin{remark}[Geometric Interpretation]
+The attainable region $u^{(0)}(\mathcal{L})$ is an \textbf{open half-strip}: a vertical strip (bounded in $u_1$) intersected with a half-plane above the affine line $u_2 = g(u_1)$. This is \emph{not} a rectangle---the lower bound for $u_2$ depends on $u_1$.
+\end{remark}
+
+\subsection{Stage 3: Radial Compression to the Disk}
+
+\begin{definition}[Radial Compression Map]
+\label{def:compression}
+Let $\kappa > 0$ be the \textbf{saturation rate} parameter. Define $T_\kappa: \R^2 \to \D$ by
+\begin{equation}
+\boxed{
+T_\kappa(u) = \begin{cases}
+\displaystyle \tanh(\kappa \norm{u}) \cdot \frac{u}{\norm{u}}, & u \neq (0,0), \\[0.8em]
+(0,0), & u = (0,0).
+\end{cases}
+}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Properties of Radial Compression]
+\label{prop:compression-props}
+The map $T_\kappa: \R^2 \to \D$ satisfies:
+\begin{enumerate}[label=(\roman*)]
+    \item $T_\kappa$ is smooth on $\R^2$ (smoothness at $(0,0)$ follows from $\tanh(\kappa r)/r \to \kappa$ as $r \to 0$)
+    \item $\norm{T_\kappa(u)} = \tanh(\kappa\norm{u}) < 1$ for all $u \in \R^2$
+    \item $T_\kappa(0,0) = (0,0)$
+    \item $T_\kappa: \R^2 \to \D$ is a \textbf{diffeomorphism}: a bijection where both $T_\kappa$ and $T_\kappa^{-1}$ are smooth
+    \item $T_\kappa$ preserves directions: for $u \neq (0,0)$, $T_\kappa(u) = \lambda u$ for some $\lambda > 0$
+\end{enumerate}
+\end{proposition}
+
+\begin{proposition}[Inverse of Radial Compression]
+\label{prop:inverse-T}
+The inverse $T_\kappa^{-1}: \D \to \R^2$ is
+\begin{equation}
+T_\kappa^{-1}(v) = \begin{cases}
+\displaystyle \frac{\arctanh(\norm{v})}{\kappa \norm{v}} v, & v \neq (0,0), \\[0.8em]
+(0,0), & v = (0,0).
+\end{cases}
+\end{equation}
+This is smooth on $\D$ (smoothness at $(0,0)$ follows from $\arctanh(r)/r \to 1$ as $r \to 0$).
+\end{proposition}
+
+\begin{remark}[Boundary as Asymptotic Limit]
+\label{rem:boundary}
+Since $\tanh(x) < 1$ for all finite $x$, the map never reaches $\partial \D$. Pure states ($\norm{v} = 1$) are asymptotic limits. This is physically realistic: all realizable colors remain in the interior $\D$.
+\end{remark}
+
+\begin{remark}[Numerical Stability]
+\label{rem:numerical}
+For implementation:
+\begin{itemize}
+    \item Near $u = (0,0)$: let $r_u := \norm{u}$; use the series $\tanh(\kappa r_u)/r_u \approx \kappa - \kappa^3 r_u^2/3$ for $r_u < 10^{-8}$.
+    \item Near $\norm{v} = 1$: clamp $\norm{v} \leftarrow \min(\norm{v}, 1 - \delta)$ with small $\delta$ (e.g., $10^{-6}$) before computing $\arctanh$.
+    \item For the inverse near $v = (0,0)$: let $r_v := \norm{v}$; use $\arctanh(r_v)/r_v \approx 1 + r_v^2/3$ for $r_v < 10^{-8}$.
+\end{itemize}
+\end{remark}
+
+\subsection{Stage 4: The Full Chromaticity Map}
+
+\begin{definition}[Chromaticity Map]
+\label{def:full-map}
+The \textbf{chromaticity map} $\Phi_\theta: \mathcal{L} \to \D$ with parameter vector $\theta = (w_L, w_M, \gamma, \beta, \varepsilon, \kappa)$ where $w_L, w_M, \gamma, \beta, \kappa \in \Rpp$ and $\varepsilon \in \Rnn$, is the composition
+\begin{equation}
+\boxed{
+\Phi_\theta = T_\kappa \circ \Pi \circ \mathcal{O}: \mathcal{L} \to \D
+}
+\end{equation}
+The \textbf{density matrix map} is $\rho \circ \Phi_\theta: \mathcal{L} \to H_+(2,\R)$.
+\end{definition}
+
+\begin{theorem}[Main Properties]
+\label{thm:main-props}
+The chromaticity map $\Phi_\theta: \mathcal{L} \to \D$ satisfies:
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{(Disk-Boundedness)} $\norm{\Phi_\theta(x)} < 1$ for all $x \in \mathcal{L}$
+    \item \textbf{(Achromatic Mapping)} If $O_1 = O_2 = 0$, then $\Phi_\theta(x) = (0,0)$
+    \item \textbf{(Smoothness)} $\Phi_\theta$ is smooth on $\mathcal{L}$
+    \item \textbf{(Non-Surjectivity)} $\Phi_\theta(\mathcal{L}) \subsetneq \D$
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(i)--(iii) are immediate from the component properties.
+
+(iv) Consider points $(r, 0)$ on the $v_1$-axis with $r \in (-1, 1)$. If $\Phi_\theta(x) = (v_1, 0)$ for some $x \in \mathcal{L}$, then writing $v = T_\kappa(u)$ where $u = \Pi(\mathcal{O}(x))$, since $T_\kappa$ preserves directions, we must have $u_2 = 0$, and hence $v_1 = \tanh(\kappa u_1)$. By Lemma~\ref{lem:u1-eps-bounds}:
+\begin{itemize}
+    \item $u_1 < 1/w_L$ implies $v_1 < \tanh(\kappa/w_L)$
+    \item $u_1 > -\gamma/w_M$ implies $v_1 > -\tanh(\kappa\gamma/w_M)$
+\end{itemize}
+Therefore points $(r, 0)$ with $r \geq \tanh(\kappa/w_L)$ or $r \leq -\tanh(\kappa\gamma/w_M)$ have no preimage.
+\end{proof}
+
+\begin{remark}[Physical Interpretation]
+Non-surjectivity reflects physical reality: not all abstract chromatic states correspond to realizable stimuli. The image represents the \emph{attainable chromaticity gamut}.
+\end{remark}
+
+\subsection{Explicit Formula}
+
+\begin{proposition}[Closed-Form Map]
+\label{prop:closed-form}
+For $(L, M, S) \in \mathcal{L}$, with $Y = w_L L + w_M M$, $O_1 = L - \gamma M$, $O_2 = S - \beta(L + M)$, and 
+\begin{equation}
+r_u := \frac{\sqrt{O_1^2 + O_2^2}}{Y + \varepsilon} = \norm{u}
+\end{equation}
+(the norm of the chromaticity vector $u$), we have:
+\begin{equation}
+\boxed{
+\Phi_\theta(L, M, S) = \begin{cases}
+\displaystyle \frac{\tanh(\kappa r_u)}{r_u(Y + \varepsilon)} \begin{pmatrix} O_1 \\ O_2 \end{pmatrix}, & (O_1, O_2) \neq (0,0), \\[1em]
+(0,0), & (O_1, O_2) = (0,0).
+\end{cases}
+}
+\end{equation}
+\end{proposition}
+
+%=============================================================================
+\section{Luminance-Conditioned Reconstruction}
+\label{sec:inverse}
+%=============================================================================
+
+Since $\Pi$ discards intensity information, reconstruction requires specifying a target luminance.
+
+\subsection{Component Inverses}
+
+The inverse $T_\kappa^{-1}: \D \to \R^2$ is given in Proposition~\ref{prop:inverse-T}.
+
+\begin{definition}[Luminance-Conditioned Inverse of $\Pi$]
+\label{def:inverse-Pi}
+Given $u = (u_1, u_2) \in \R^2$ and target luminance $Y_{\mathrm{target}} > 0$, define
+\begin{equation}
+\Pi^{-1}(u; Y_{\mathrm{target}}) := (Y_{\mathrm{target}}, O_1, O_2), \quad \text{where } O_i = u_i(Y_{\mathrm{target}} + \varepsilon) \text{ for } i \in \{1, 2\}.
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Inverse of $A_\theta$]
+\label{prop:inverse-A}
+\begin{equation}
+A_\theta^{-1} = \frac{1}{\Delta} \begin{pmatrix}
+\gamma & w_M & 0 \\
+1 & -w_L & 0 \\
+\beta(1 + \gamma) & \beta(w_M - w_L) & \Delta
+\end{pmatrix}.
+\end{equation}
+\end{proposition}
+
+\begin{definition}[Luminance-Conditioned Reconstruction]
+\label{def:reconstruction}
+Given $v \in \D$ and $Y_{\mathrm{target}} > 0$:
+\begin{equation}
+\boxed{
+\widetilde{\Phi}_\theta^{-1}(v; Y_{\mathrm{target}}) := A_\theta^{-1} \left( \Pi^{-1}(T_\kappa^{-1}(v); Y_{\mathrm{target}}) \right)
+}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Reconstruction Property]
+\label{prop:reconstruction}
+For $x \in \mathcal{L}$, if $v = \Phi_\theta(x)$ and $Y_{\mathrm{target}} = Y(x)$, then $\widetilde{\Phi}_\theta^{-1}(v; Y_{\mathrm{target}}) = x$.
+\end{proposition}
+
+\begin{remark}[Feasibility and Right-Inverse]
+The reconstruction $\widetilde{\Phi}_\theta^{-1}$ is a \textbf{right-inverse} on the image:
+\begin{equation}
+\Phi_\theta(\widetilde{\Phi}_\theta^{-1}(v; Y_{\mathrm{target}})) = v \quad \text{for } v \in \Phi_\theta(\mathcal{L}) \text{ and consistent } Y_{\mathrm{target}}.
+\end{equation}
+For $v \notin \Phi_\theta(\mathcal{L})$, the reconstruction is a formal extension that may produce negative cone responses; gamut mapping is then required.
+\end{remark}
+
+\begin{proposition}[Explicit Positivity Conditions]
+\label{prop:positivity}
+Let $Y := Y_{\mathrm{target}}$ and $u = T_\kappa^{-1}(v)$. The reconstruction yields $(L, M, S) \in \mathcal{L}$ if and only if:
+\begin{align}
+L > 0 &\iff Y(\gamma + w_M u_1) + w_M u_1 \varepsilon > 0, \label{eq:L-pos}\\
+M > 0 &\iff Y(1 - w_L u_1) - w_L u_1 \varepsilon > 0, \label{eq:M-pos}\\
+S > 0 &\iff Y \cdot A(u) + \varepsilon \cdot B(u) > 0, \label{eq:S-pos}
+\end{align}
+where $A(u) := \beta(1+\gamma) + \beta(w_M - w_L)u_1 + \Delta u_2$ and $B(u) := \beta(w_M - w_L)u_1 + \Delta u_2$.
+\end{proposition}
+
+\begin{remark}[Connection to the Half-Strip Condition]
+The function $A(u)$ satisfies the key identity
+\begin{equation}
+\boxed{A(u) = \Delta \bigl( u_2 - g(u_1) \bigr)}
+\end{equation}
+This ties together the half-strip feasibility condition $u_2 > g(u_1)$ with reconstruction: for chromaticities in the attainable region (where $u_2 > g(u_1)$), we have $A(u) > 0$, and then inequality~\eqref{eq:S-pos} becomes a lower bound on $Y$ when $B(u) < 0$.
+\end{remark}
+
+\begin{remark}[Minimum Luminance for Feasibility]
+For implementation, these conditions translate to minimum luminance requirements:
+\begin{itemize}
+    \item If $u_1 > 0$: require $Y > \dfrac{w_L u_1 \varepsilon}{1 - w_L u_1}$ for $M > 0$.
+    \item If $u_1 < 0$: require $Y > \dfrac{-w_M u_1 \varepsilon}{\gamma + w_M u_1}$ for $L > 0$.
+    \item If $B(u) < 0$: require $Y > \dfrac{-\varepsilon B(u)}{A(u)}$ for $S > 0$.
+\end{itemize}
+Choosing $Y_{\mathrm{target}} \gg \varepsilon$ maximizes the feasible chromaticity range.
+\end{remark}
+
+%=============================================================================
+\section{Special Cases}
+\label{sec:special}
+%=============================================================================
+
+\subsection{Achromatic Locus}
+
+\begin{proposition}[Achromatic Locus]
+\label{prop:achromatic}
+$\Phi_\theta(L,M,S) = (0,0)$ iff $L = \gamma M$ and $S = \beta(1 + \gamma)M$. The achromatic locus is the ray
+\begin{equation}
+\mathcal{A} = \{ (\gamma M, M, \beta(1+\gamma)M) : M > 0 \}.
+\end{equation}
+\end{proposition}
+
+\subsection{Opponent Axes}
+
+\begin{proposition}[Red-Green Axis]
+\label{prop:rg-axis}
+Colors with $O_2 = 0$ map to the $v_1$-axis. The attainable interval (as $Y/\varepsilon \to \infty$) is
+\begin{equation}
+v_1 \in \left( -\tanh\left(\frac{\kappa\gamma}{w_M}\right), \tanh\left(\frac{\kappa}{w_L}\right) \right), \quad v_2 = 0.
+\end{equation}
+\end{proposition}
+
+\begin{proposition}[Yellow-Blue Axis]
+\label{prop:yb-axis}
+Colors with $O_1 = 0$ map to the $v_2$-axis. The sign of $v_2$ indicates S-cone dominance ($v_2 > 0$, ``blue'') or (L+M)-dominance ($v_2 < 0$, ``yellow'').
+\end{proposition}
+
+%=============================================================================
+\section{Geometry on the Bloch Disk}
+\label{sec:geometry}
+%=============================================================================
+
+We endow $\D$ with the \textbf{Hilbert metric}, a projective metric defined on the interior of any bounded convex domain. For the disk, this coincides with the Klein (Beltrami-Klein) model of hyperbolic geometry.
+
+\subsection{The Hilbert Metric}
+
+\begin{definition}[Hilbert Distance]
+\label{def:hilbert}
+For $p, q \in \D$ with $p \neq q$, let the line through them intersect $\partial \D$ at points $a^-$ and $a^+$, labeled so that they appear in the order $a^-, p, q, a^+$ along the line. The \textbf{Hilbert distance} is
+\begin{equation}
+\boxed{
+d_H(p, q) = \frac{1}{2} \ln \left( \frac{\norm{q - a^-}}{\norm{p - a^-}} \cdot \frac{\norm{p - a^+}}{\norm{q - a^+}} \right)
+}
+\end{equation}
+For $p = q$, we set $d_H(p, p) = 0$.
+\end{definition}
+
+\begin{proposition}[Boundary Point Computation]
+For $p, q \in \D$ with $p \neq q$, solve $\norm{p + t(q-p)}^2 = 1$ for $t$. This gives a quadratic equation $At^2 + Bt + C = 0$ where $A = \norm{q-p}^2$, $B = 2\inner{p}{q-p}$, $C = \norm{p}^2 - 1$. The solutions $t_\pm = (-B \pm \sqrt{B^2 - 4AC})/(2A)$ yield $a^\pm = p + t_\pm(q-p)$.
+\end{proposition}
+
+\begin{proposition}[Klein Distance Formula]
+\label{prop:klein-formula}
+On $\D$, the Hilbert distance equals the Klein hyperbolic distance (see \cite{Berthier2020}, \cite{Provenzi2020}):
+\begin{equation}
+\boxed{
+d_H(p, q) = \arcosh\left( \frac{1 - \inner{p}{q}}{\sqrt{(1 - \norm{p}^2)(1 - \norm{q}^2)}} \right)
+}
+\end{equation}
+\end{proposition}
+
+\begin{proof}[Verification for $p = 0$]
+Let $p = (0,0)$, $q = v \neq (0,0)$, and set $r := \norm{v} \in (0, 1)$. The line through $(0,0)$ and $v$ intersects $\partial\D$ at
+\begin{equation}
+a^- = -\frac{v}{\norm{v}}, \qquad a^+ = \frac{v}{\norm{v}}.
+\end{equation}
+Computing Euclidean distances along this line:
+\begin{equation}
+\norm{v - a^-} = \left\| v + \frac{v}{r} \right\| = r + 1, \quad
+\norm{0 - a^-} = 1, \quad
+\norm{0 - a^+} = 1, \quad
+\norm{v - a^+} = \left\| v - \frac{v}{r} \right\| = 1 - r.
+\end{equation}
+Substituting into Definition~\ref{def:hilbert}:
+\begin{equation}
+d_H(0, v) = \frac{1}{2} \ln\left( \frac{r + 1}{1} \cdot \frac{1}{1 - r} \right) = \frac{1}{2} \ln \frac{1 + r}{1 - r} = \arctanh(r).
+\end{equation}
+The arcosh formula with $p = (0,0)$ gives $\arcosh(1/\sqrt{1-r^2})$. Using the identity $\arcosh(1/\sqrt{1-r^2}) = \arctanh(r)$, this confirms consistency.
+\end{proof}
+
+\begin{remark}[Finsler vs.\ Riemannian]
+For general convex domains, Hilbert geometry is Finsler. For ellipsoids (including the disk), it is Riemannian with constant curvature $-1$.
+\end{remark}
+
+\subsection{Geodesics}
+
+\begin{theorem}[Geodesics are Chords]
+\label{thm:geodesics}
+In Hilbert geometry on $\D$, geodesics are Euclidean line segments (this is a standard result; see \cite{Berthier2020}). The geodesic from $p$ to $q$ is:
+\begin{equation}
+\Gamma_{p,q} = \{(1-t)p + tq : t \in [0,1]\}.
+\end{equation}
+\end{theorem}
+
+\begin{remark}[Practical Interpolation]
+Linear interpolation traces the correct geodesic path, though the parameter $t$ is not arc-length. This suffices for visualization.
+\end{remark}
+
+\subsection{Metric Tensor}
+
+\begin{proposition}[Klein Metric Tensor]
+The Riemannian metric tensor (infinitesimal squared distance $ds^2$) on the Klein disk is
+\begin{equation}
+ds^2 = \frac{dv_1^2 + dv_2^2}{1 - r^2} + \frac{(v_1 \, dv_1 + v_2 \, dv_2)^2}{(1 - r^2)^2}
+\end{equation}
+where $r^2 = v_1^2 + v_2^2 = \norm{v}^2$ and $v = (v_1, v_2) \in \D$. This gives the hyperbolic plane with constant \textbf{Gaussian curvature} $K = -1$ (a measure of intrinsic curvature; negative curvature means the geometry is ``saddle-like'').
+\end{proposition}
+
+%=============================================================================
+\section{Chromatic Attributes}
+\label{sec:attributes}
+%=============================================================================
+
+\subsection{Von Neumann Entropy and Saturation}
+
+\begin{definition}[Von Neumann Entropy]
+For a density matrix $\rho(v)$ with $v \in \bar{\D}$, let $r := \norm{v} \in [0, 1]$ denote the \textbf{purity radius}. The eigenvalues are $\lambda_\pm = \frac{1}{2}(1 \pm r)$ (from Proposition~\ref{prop:density-props}). The \textbf{von Neumann entropy} is
+\begin{equation}
+S(\rho) := -\Tr(\rho \log_2 \rho) = -\lambda_+ \log_2 \lambda_+ - \lambda_- \log_2 \lambda_-,
+\end{equation}
+where $\log_2$ denotes the base-2 logarithm, and we use the convention $0 \log_2 0 = 0$.
+\end{definition}
+
+\begin{proposition}[Entropy Formula]
+Writing $S$ as a function of the purity radius $r = \norm{v}$:
+\begin{equation}
+\boxed{
+S(r) = 1 - \frac{1}{2}\left[ (1+r)\log_2(1+r) + (1-r)\log_2(1-r) \right]
+}
+\end{equation}
+with $S(0) = 1$ (maximum entropy, achromatic state) and $S(1) = 0$ (minimum entropy, pure state).
+\end{proposition}
+
+\begin{definition}[Information-Theoretic Saturation]
+\begin{equation}
+\boxed{
+\Sigma(r) = 1 - S(r)
+}
+\end{equation}
+with $\Sigma(0) = 0$ and $\Sigma(1) = 1$.
+\end{definition}
+
+\subsection{Hue Angle}
+
+\begin{definition}[Hue]
+For $v = (v_1, v_2) \neq (0,0)$, the \textbf{hue angle} is 
+\begin{equation}
+H(v) = \mathrm{atan2}(v_2, v_1) \in (-\pi, \pi],
+\end{equation}
+where $\mathrm{atan2}(y, x)$ is the two-argument arctangent function that returns the angle (in radians) of the point $(x, y)$ measured counterclockwise from the positive $x$-axis. The achromatic state $v = (0,0)$ has undefined hue.
+\end{definition}
+
+%=============================================================================
+\section{Gyrovector Structure (Klein Disk Convention)}
+\label{sec:gyrovector}
+%=============================================================================
+
+The open disk $\D$ admits a \textbf{gyrovector space} structure---an algebraic framework generalizing vector addition to hyperbolic geometry. In a gyrovector space, the ``addition'' operation (called \textbf{gyroaddition}) is generally non-associative and non-commutative, but still satisfies useful algebraic identities. This structure corresponds to the \textbf{Klein (Beltrami-Klein) model} of hyperbolic geometry and provides an algebraic framework for chromatic operations.
+
+\begin{remark}[Convention]
+We follow the Klein disk convention, which differs from the Poincaré disk model. In the Klein model, geodesics are Euclidean chords (Theorem~\ref{thm:geodesics}), and the addition law below is the corresponding gyroaddition. See \cite{Berthier2020} for detailed treatment in the color perception context.
+\end{remark}
+
+\begin{definition}[Klein Gyroaddition]
+For $u, v \in \D$, define the \textbf{Lorentz factor} $\Gamma_u := (1 - \norm{u}^2)^{-1/2}$ (note: this is unrelated to the opponent balance parameter $\gamma$ from Section~\ref{sec:construction}). The \textbf{Klein gyroaddition} is
+\begin{equation}
+\boxed{
+u \oplus v = \frac{1}{1 + \inner{u}{v}} \left[ u + \frac{v}{\Gamma_u} + \frac{\Gamma_u}{1 + \Gamma_u}\inner{u}{v} u \right]
+}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Properties]
+$(0,0) \oplus v = v$; $(-u) \oplus u = (0,0)$; generally non-commutative; $\norm{u \oplus v} < 1$.
+\end{proposition}
+
+\begin{theorem}[Distance via Gyroaddition]
+$d_H(u, v) = \arctanh(\norm{(-u) \oplus v})$.
+\end{theorem}
+
+\begin{remark}[Chromatic Adaptation Interpretation]
+The gyroaddition models chromatic adaptation: $(-u) \oplus v$ represents adapting stimulus $v$ relative to illuminant $u$. This algebraic structure may be useful for color constancy computations in Part II.
+\end{remark}
+
+%=============================================================================
+\section{Parameters}
+\label{sec:parameters}
+%=============================================================================
+
+\begin{definition}[Parameter Vector]
+$\theta = (w_L, w_M, \gamma, \beta, \varepsilon, \kappa)$ with $w_L, w_M, \gamma, \beta, \kappa \in \Rpp$ and $\varepsilon \in \Rnn$:
+\begin{center}
+\begin{tabular}{cl}
+\toprule
+Parameter & Description \\
+\midrule
+$w_L, w_M$ & Luminance weights \\
+$\gamma$ & L/M opponent balance \\
+$\beta$ & S vs (L+M) balance \\
+$\varepsilon$ & Luminance regularization ($\geq 0$) \\
+$\kappa$ & Saturation rate \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{definition}
+
+\begin{proposition}[Defaults]
+$\theta_0 = (1, 1, 1, 0.5, 0.01, 1)$ based on physiological considerations.
+\end{proposition}
+
+\begin{remark}[Calibration]
+Parameters are degrees of freedom for Part II calibration against psychophysical data.
+\end{remark}
+
+%=============================================================================
+\section{Summary}
+\label{sec:summary}
+%=============================================================================
+
+\begin{theorem}[Summary]
+The chromaticity map $\Phi_\theta: \mathcal{L} \to \D$ satisfies:
+\begin{enumerate}[label=(\arabic*)]
+    \item \textbf{Well-defined:} Smooth map from $\mathcal{L} = \Rpp^3$ to $\D$.
+    \item \textbf{Disk-bounded:} $\norm{\Phi_\theta(x)} < 1$; boundary is asymptotic.
+    \item \textbf{Achromatic:} $\mathcal{A} \mapsto (0,0) \in \D$.
+    \item \textbf{Non-surjective:} $\Phi_\theta(\mathcal{L}) \subsetneq \D$; specifically, $(r, 0) \notin \Phi_\theta(\mathcal{L})$ when $r \geq \tanh(\kappa/w_L)$ or $r \leq -\tanh(\kappa\gamma/w_M)$.
+    \item \textbf{Attainable region:} Open half-strip with affine boundary; $u^{(\varepsilon)}(\mathcal{L}) = u^{(0)}(\mathcal{L})$ as sets.
+    \item \textbf{Opponent encoding:} $(v_1, v_2)$ encode red-green and yellow-blue opponency.
+    \item \textbf{Hilbert geometry:} Geodesics are chords; curvature $-1$.
+    \item \textbf{Entropy-based saturation:} $\Sigma(r) = 1 - S(\rho)$.
+    \item \textbf{Reconstruction:} $\widetilde{\Phi}_\theta^{-1}(v; Y_{\mathrm{target}})$ is a right-inverse on $\Phi_\theta(\mathcal{L})$ with explicit positivity conditions.
+\end{enumerate}
+\end{theorem}
+
+%=============================================================================
+\section*{Non-Claims}
+%=============================================================================
+
+\begin{itemize}
+    \item We do \textbf{not} claim uniqueness of $\Phi_\theta$.
+    \item We do \textbf{not} claim perceptual validity across observers.
+    \item We do \textbf{not} resolve linearity or crispening issues.
+    \item We \textbf{only} demonstrate a computable bridge for geometric computations.
+\end{itemize}
+
+%=============================================================================
+\bibliographystyle{plain}
+\begin{thebibliography}{10}
+
+\bibitem{Berthier2020}
+M.~Berthier. Geometry of color perception. Part 2: perceived colors from real quantum states and Hering's rebit. \emph{J. Math. Neurosci.}, 10:14, 2020.
+
+\bibitem{Provenzi2020}
+E.~Provenzi. Geometry of color perception. Part 1: structures and metrics of a homogeneous color space. \emph{J. Math. Neurosci.}, 10:7, 2020.
+
+\bibitem{Prencipe2022}
+N.~Prencipe. \emph{Th\'eorie et applications d'une nouvelle formulation de l'espace des couleurs per\c{c}ues}. PhD thesis, Univ. La Rochelle, 2022.
+
+\bibitem{Resnikoff1974}
+H.L.~Resnikoff. Differential geometry and color perception. \emph{J. Math. Biol.}, 1:97--131, 1974.
+
+\end{thebibliography}
+
+\end{document}
